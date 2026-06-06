@@ -1,0 +1,18 @@
+name = "food-queue"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "./dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "foodqueue-db"
+database_id = "REPLACE_WITH_DATABASE_ID"
+
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "foodqueue-images"
+
+# Secrets / vars (set in Cloudflare dashboard or via `wrangler pages secret put`):
+#   ANTHROPIC_API_KEY   - required for /api/generate
+#   GENERATE_MODEL      - optional, defaults to claude-sonnet-4-6
+#   GENERATE_SECRET     - optional, if set the generate endpoint requires header x-generate-secret

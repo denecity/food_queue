@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --nav-h: 64px;
+  }
+
+  html {
+    background-color: #171210;
+    color: #f5ede6;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    overscroll-behavior-y: none;
+  }
+
+  /* Prevent iOS zoom on input focus */
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #3a302b transparent;
+  }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #3a302b; border-radius: 3px; }
+}
+
+@layer components {
+  .card {
+    @apply bg-bg-card border border-line rounded-2xl;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 font-semibold rounded-xl px-4 py-3
+           transition-colors duration-150 active:scale-[0.98] select-none;
+  }
+  .btn-primary {
+    @apply btn bg-accent hover:bg-accent-hover text-white;
+  }
+  .btn-ghost {
+    @apply btn bg-bg-elevated hover:bg-bg-hover text-ink-soft;
+  }
+  .btn-line {
+    @apply btn border border-line hover:border-line-strong text-ink-soft bg-transparent;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full
+           bg-bg-elevated text-ink-soft border border-line;
+  }
+  .chip-accent {
+    @apply chip bg-accent-soft text-accent border-accent/30;
+  }
+
+  .field {
+    @apply w-full bg-bg-base border border-line rounded-xl px-3 py-2.5 text-ink
+           placeholder:text-ink-faint focus:outline-none focus:border-accent/60;
+  }
+
+  .label {
+    @apply text-xs font-semibold uppercase tracking-wide text-ink-dim mb-1.5 block;
+  }
+}
+
+@layer utilities {
+  .pt-safe { padding-top: var(--safe-top); }
+  .pb-safe { padding-bottom: var(--safe-bottom); }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in { animation: fade-in 0.18s ease-out; }
+
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-pop-in { animation: pop-in 0.16s ease-out; }

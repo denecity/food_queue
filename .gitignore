@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars
+*.local
+.DS_Store
+
+# Notion reference export (large; not needed in the repo)
+(1) meal planner _ Notion.htm
+(1) meal planner _ Notion_files/
