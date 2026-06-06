@@ -1,6 +1,8 @@
 import type { Env } from '../../_lib/types'
 import { json, readJson, badRequest, uuid, now } from '../../_lib/http'
 
+export interface RecipeRef { id: string; name: string; emoji: string }
+
 export interface GroceryItem {
   id: string
   name: string
@@ -10,8 +12,23 @@ export interface GroceryItem {
   checked: boolean
   source: 'plan' | 'manual'
   recipe_ids: string[]
+  recipes?: RecipeRef[]
   sort_order: number
   created_at: string
+}
+
+/** Attach {id,name,emoji} for each contributing recipe so the UI can show the source dish. */
+export async function withRecipeNames(env: Env, items: GroceryItem[]): Promise<GroceryItem[]> {
+  const ids = [...new Set(items.flatMap((i) => i.recipe_ids))]
+  if (ids.length === 0) return items.map((i) => ({ ...i, recipes: [] }))
+  const ph = ids.map(() => '?').join(',')
+  const { results } = await env.DB.prepare(`SELECT id, name, emoji FROM recipes WHERE id IN (${ph})`)
+    .bind(...ids)
+    .all<Record<string, unknown>>()
+  const map = new Map<string, RecipeRef>(
+    (results ?? []).map((r) => [r.id as string, { id: r.id as string, name: r.name as string, emoji: (r.emoji as string) ?? '🍽️' }])
+  )
+  return items.map((i) => ({ ...i, recipes: i.recipe_ids.map((id) => map.get(id)).filter((x): x is RecipeRef => !!x) }))
 }
 
 export function mapGrocery(row: Record<string, unknown>): GroceryItem {
@@ -37,7 +54,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
     `SELECT * FROM grocery_items
      ORDER BY checked ASC, category ASC, sort_order ASC, name ASC`
   ).all<Record<string, unknown>>()
-  return json((results ?? []).map(mapGrocery))
+  return json(await withRecipeNames(env, (results ?? []).map(mapGrocery)))
 }
 
 // POST /api/grocery  — add a manual item.

@@ -88,10 +88,17 @@ export function ShopScreen({
                       >
                         {i.checked ? '✓' : ''}
                       </button>
-                      <div className={`flex-1 min-w-0 ${i.checked ? 'line-through text-ink-faint' : 'text-ink'}`}>
-                        <span className="truncate">{i.name}</span>
-                        {(i.quantity != null || i.unit) && (
-                          <span className="text-ink-dim text-sm ml-2">{formatQty(i.quantity, i.unit)}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className={i.checked ? 'line-through text-ink-faint' : 'text-ink'}>
+                          <span className="truncate">{i.name}</span>
+                          {(i.quantity != null || i.unit) && (
+                            <span className="text-ink-dim text-sm ml-2">{formatQty(i.quantity, i.unit)}</span>
+                          )}
+                        </div>
+                        {i.recipes && i.recipes.length > 0 && (
+                          <div className="text-[11px] text-ink-faint truncate" title={i.recipes.map((r) => r.name).join(', ')}>
+                            {i.recipes.map((r) => `${r.emoji} ${r.name}`).join(' · ')}
+                          </div>
                         )}
                       </div>
                       {i.source === 'manual' && (

@@ -1,6 +1,6 @@
 import type { Env } from '../../_lib/types'
 import { json, now } from '../../_lib/http'
-import { mapGrocery } from './index'
+import { mapGrocery, withRecipeNames } from './index'
 
 interface Agg {
   name: string
@@ -89,5 +89,5 @@ export const onRequestPost: PagesFunction<Env> = async ({ env }) => {
   const { results } = await env.DB.prepare(
     `SELECT * FROM grocery_items ORDER BY checked ASC, category ASC, sort_order ASC, name ASC`
   ).all<Record<string, unknown>>()
-  return json((results ?? []).map(mapGrocery))
+  return json(await withRecipeNames(env, (results ?? []).map(mapGrocery)))
 }

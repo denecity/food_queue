@@ -126,10 +126,18 @@ export function RecipeEditor({
     if (!prompt.trim()) return
     setGenerating(true)
     try {
-      const r = await api.generate(prompt.trim())
+      const hasExisting = draft.name.trim() !== '' || draft.ingredients.length > 0
+      const r = await api.generate(prompt.trim(), hasExisting ? {
+        name: draft.name, emoji: draft.emoji, description: draft.description,
+        cuisine: draft.cuisine, servings: draft.servings, effort: draft.effort,
+        perishability: draft.perishability, health: draft.health, yumminess: draft.yumminess,
+        prep_minutes: draft.prep_minutes, cook_minutes: draft.cook_minutes,
+        instructions: draft.instructions, tags: draft.tags, ingredients: draft.ingredients,
+      } : undefined)
       setDraft((d) => ({
         ...d,
-        name: r.name ?? d.name,
+        // Never overwrite a name the user already set.
+        name: d.name.trim() ? d.name : (r.name ?? d.name),
         emoji: r.emoji ?? d.emoji,
         description: r.description ?? d.description,
         cuisine: r.cuisine ?? d.cuisine,

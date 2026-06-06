@@ -35,13 +35,17 @@ export const CUISINE_TAGS = ['korean', 'japanese', 'italian', 'mexican', 'indian
 
 // --- Grocery aisles ----------------------------------------------------------
 
-export const CATEGORY_ORDER = ['produce', 'protein', 'dairy', 'pantry', 'spice', 'other']
+// Ordered for an efficient shop: regular supermarket aisles first, specialty/Asian store last.
+export const CATEGORY_ORDER = ['produce', 'bakery', 'dairy', 'protein', 'frozen', 'pantry', 'spice', 'asian', 'other']
 export const CATEGORY_META: Record<string, { label: string; emoji: string }> = {
   produce: { label: 'Produce', emoji: '🥬' },
-  protein: { label: 'Protein', emoji: '🍗' },
+  bakery: { label: 'Bakery', emoji: '🥖' },
   dairy: { label: 'Dairy & Eggs', emoji: '🧀' },
+  protein: { label: 'Protein', emoji: '🍗' },
+  frozen: { label: 'Frozen', emoji: '🧊' },
   pantry: { label: 'Pantry', emoji: '🥫' },
   spice: { label: 'Spices', emoji: '🧂' },
+  asian: { label: 'Asian / specialty store', emoji: '🥢' },
   other: { label: 'Other', emoji: '🛒' },
 }
 export function categoryMeta(c: string | null) {

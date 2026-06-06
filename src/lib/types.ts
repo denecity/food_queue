@@ -67,6 +67,7 @@ export interface GroceryItem {
   checked: boolean
   source: 'plan' | 'manual'
   recipe_ids: string[]
+  recipes?: { id: string; name: string; emoji: string }[]
   sort_order: number
   created_at: string
 }

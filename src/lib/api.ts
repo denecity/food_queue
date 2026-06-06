@@ -104,10 +104,10 @@ export const api = {
     },
   },
 
-  generate(prompt: string) {
+  generate(prompt: string, current?: Partial<RecipeDraft>) {
     return request<RecipeDraft & { source: 'ai' }>('/api/generate', {
       method: 'POST',
-      body: JSON.stringify({ prompt }),
+      body: JSON.stringify({ prompt, current }),
     })
   },
 }

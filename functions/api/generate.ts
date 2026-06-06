@@ -15,10 +15,16 @@ House conventions:
   - yumminess: 0..10, be honest and a bit opinionated
 - tags: pick from cold weather, hot weather, quick, high effort, plus a cuisine
   (korean, japanese, italian, etc.) and any other useful short tags.
-- Ingredients: give quantities scaled to the servings. category is one of
-  produce | dairy | protein | pantry | spice | other (for grocery aisle grouping).
+- Ingredients: give quantities scaled to the servings. category groups items for shopping
+  and is one of: produce | bakery | dairy | protein | frozen | pantry | spice | asian | other.
+  Use "asian" for items typically bought at an Asian/specialty store (gochujang, kimchi,
+  miso, fish sauce, specific noodles, etc.) so they can be shopped in one trip.
 - instructions: concise numbered steps, newline-separated.
-- emoji: a single food emoji that represents the dish.`
+- emoji: a single food emoji that represents the dish.
+
+If a CURRENT recipe is provided, treat the request as an EDIT: keep everything the same
+except what the change asks for, and return the full updated recipe (do not change the name
+unless explicitly asked).`
 
 const createRecipeTool: Anthropic.Tool = {
   name: 'create_recipe',
@@ -49,7 +55,7 @@ const createRecipeTool: Anthropic.Tool = {
             unit: { type: 'string' },
             category: {
               type: 'string',
-              enum: ['produce', 'dairy', 'protein', 'pantry', 'spice', 'other'],
+              enum: ['produce', 'bakery', 'dairy', 'protein', 'frozen', 'pantry', 'spice', 'asian', 'other'],
             },
             note: { type: 'string' },
           },
@@ -70,9 +76,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return json({ error: 'ANTHROPIC_API_KEY is not configured on the server.' }, 500)
   }
 
-  const body = await readJson<{ prompt?: string }>(request)
+  const body = await readJson<{ prompt?: string; current?: unknown }>(request)
   const prompt = body.prompt?.trim()
   if (!prompt) return badRequest('prompt is required')
+
+  const userContent = body.current
+    ? `Here is the CURRENT recipe as JSON. Apply the change request and return the full updated recipe.\n\nCURRENT:\n${JSON.stringify(body.current)}\n\nCHANGE REQUEST: ${prompt}`
+    : prompt
 
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
   const model = env.GENERATE_MODEL || 'claude-opus-4-8'
@@ -84,7 +94,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       system: SYSTEM,
       tools: [createRecipeTool],
       tool_choice: { type: 'tool', name: 'create_recipe' },
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{ role: 'user', content: userContent }],
     })
 
     const block = message.content.find((b) => b.type === 'tool_use')
