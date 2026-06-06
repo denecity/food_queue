@@ -3,11 +3,12 @@
 A personal, mobile-first meal-planning app for two. Swipe to pick dishes for the week,
 keep a grocery list, rate & categorize recipes, and generate new recipes with the Claude API.
 
-Hosted on **Cloudflare Pages** with **D1** (state) + **R2** (recipe photos).
+Hosted on **Cloudflare Pages** with **D1** (state). Recipe photos work via a pasted image
+URL out of the box; native **R2** uploads can be switched on later (see below).
 See [SPEC.md](SPEC.md) for the full design.
 
 ## Stack
-React 18 · Vite · TypeScript · Tailwind · Cloudflare Pages Functions · D1 · R2 · Claude API
+React 18 · Vite · TypeScript · Tailwind · Cloudflare Pages Functions · D1 · R2 (optional) · Claude API
 
 ## The weekly flow
 1. **Swipe** 🔥 — swipe right to add a dish to your **picks** for the next shop.
@@ -49,12 +50,10 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 ## Deploy to Cloudflare
 
-### 1. Create the D1 database and R2 bucket
+### 1. Create the D1 database
 ```bash
 npx wrangler d1 create foodqueue-db
 # → paste the returned database_id into wrangler.toml ([[d1_databases]].database_id)
-
-npx wrangler r2 bucket create foodqueue-images
 ```
 
 ### 2. Apply the schema (+ seed of 47 dishes)
@@ -68,10 +67,19 @@ npm run pages:deploy       # builds, then wrangler pages deploy dist
 ```
 (or connect the repo in the Cloudflare dashboard: build `npm run build`, output `dist`).
 
-### 4. Bind resources & secrets (Pages → Settings → Functions)
+### 4. Bind resources & secrets (Pages → Settings → Bindings)
 - **D1 binding:** variable `DB` → `foodqueue-db`
-- **R2 binding:** variable `IMAGES` → `foodqueue-images`
 - **Secret:** `ANTHROPIC_API_KEY` (`npx wrangler pages secret put ANTHROPIC_API_KEY`)
+
+### (Optional, later) Enable native photo uploads via R2
+Photos work today as pasted image URLs. To turn on in-app uploads:
+1. Create the bucket: `npx wrangler r2 bucket create foodqueue-images` (or the dashboard).
+2. **Uncomment** the `[[r2_buckets]]` block in [wrangler.toml](wrangler.toml) and redeploy.
+3. (Optional) add the `IMAGES` binding in the dashboard too if you manage bindings there.
+
+That's it — the **📷 Upload** button in the recipe editor lights up. No code changes; until
+then it returns a clear "R2 not enabled" message and you use the URL field. `image_key`
+stores either a pasted URL or an R2 key, and the app resolves both transparently.
 - **Optional vars:** `GENERATE_MODEL` (default `claude-opus-4-8`), `GENERATE_SECRET`
   (if set, `/api/generate` requires header `x-generate-secret`).
 

@@ -1,7 +1,9 @@
 import type { Env } from '../../_lib/types'
 
-// GET /api/images/<key...>  — stream an object from R2.
+// GET /api/images/<key...>  — stream an object from R2 (only when R2 is enabled).
 export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
+  if (!env.IMAGES) return new Response('R2 not enabled', { status: 404 })
+
   const parts = params.path
   const key = Array.isArray(parts) ? parts.join('/') : String(parts ?? '')
   if (!key) return new Response('Not found', { status: 404 })

@@ -50,10 +50,16 @@ export function categoryMeta(c: string | null) {
 
 // --- Images & visuals --------------------------------------------------------
 
-/** URL for a recipe photo (R2), cache-busted by updated_at; null if no photo. */
-export function recipeImageUrl(r: Pick<Recipe, 'image_key' | 'updated_at'>): string | null {
+/**
+ * Resolve a recipe's photo. `image_key` holds EITHER a pasted http(s) URL
+ * (no-R2 mode) OR an R2 object key (served via /api/images, cache-busted by
+ * updated_at). Returns null if there's no photo.
+ */
+export function recipeImageUrl(r: { image_key: string | null; updated_at?: string }): string | null {
   if (!r.image_key) return null
-  return `/api/images/${r.image_key}?v=${encodeURIComponent(r.updated_at ?? '')}`
+  if (/^https?:\/\//i.test(r.image_key)) return r.image_key
+  const v = r.updated_at ? `?v=${encodeURIComponent(r.updated_at)}` : ''
+  return `/api/images/${r.image_key}${v}`
 }
 
 const GRADIENTS = [

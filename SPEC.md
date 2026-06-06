@@ -41,7 +41,7 @@ array on the recipe.
 | Frontend | React 18 + Vite + TypeScript + Tailwind (mobile-first) |
 | Backend | Cloudflare Pages Functions (`/functions/api/**`) |
 | Database | Cloudflare D1 (SQLite) — binding `DB` |
-| Images | Cloudflare R2 — binding `IMAGES` |
+| Images | Pasted URL by default; **optional** Cloudflare R2 (`IMAGES` binding) for native uploads |
 | AI | Claude API via `fetch` from a Pages Function (no SDK bundled) |
 
 - **Auth:** none (per decision). The Claude endpoint is the only cost risk, so it stays
@@ -61,7 +61,7 @@ array on the recipe.
 | id | TEXT PK | uuid |
 | name | TEXT | |
 | emoji | TEXT | card accent / fallback |
-| image_key | TEXT? | R2 object key |
+| image_key | TEXT? | pasted image URL, or R2 object key when R2 is enabled (app resolves both) |
 | description | TEXT? | one-liner |
 | cuisine | TEXT? | |
 | servings | INT | default 5 |
