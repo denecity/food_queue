@@ -6,7 +6,7 @@ pages_build_output_dir = "./dist"
 [[d1_databases]]
 binding = "DB"
 database_name = "foodqueue-db"
-database_id = "REPLACE_WITH_DATABASE_ID"
+database_id = "e750e246-9cac-49b4-b4a5-a2678b3b9740"
 
 [[r2_buckets]]
 binding = "IMAGES"
