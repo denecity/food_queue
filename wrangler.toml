@@ -8,13 +8,9 @@ binding = "DB"
 database_name = "foodqueue-db"
 database_id = "e750e246-9cac-49b4-b4a5-a2678b3b9740"
 
-# --- Optional R2 photo uploads ---------------------------------------------
-# Uploads are OFF by default (recipes use a pasted image URL). To enable native
-# photo uploads later: create the bucket (`wrangler r2 bucket create foodqueue-images`
-# or the dashboard), UNCOMMENT the block below, then redeploy. No code changes needed.
-# [[r2_buckets]]
-# binding = "IMAGES"
-# bucket_name = "foodqueue-images"
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "foodqueue-images"
 
 # Secrets / vars (set in Cloudflare dashboard or via `wrangler pages secret put`):
 #   ANTHROPIC_API_KEY   - required for /api/generate

@@ -2,7 +2,7 @@
 
 export interface Env {
   DB: D1Database
-  IMAGES?: R2Bucket // optional: only present once the R2 binding is enabled in wrangler.toml
+  IMAGES: R2Bucket
   ANTHROPIC_API_KEY?: string
   GENERATE_MODEL?: string
   GENERATE_SECRET?: string

@@ -44,8 +44,7 @@ export const api = {
     markCooked(id: string) {
       return request<Recipe>(`/api/recipes/${id}/cooked`, { method: 'POST' })
     },
-    // R2 upload — only works once the R2 binding is enabled (else returns 503).
-    uploadImage(id: string, file: File) {
+    async uploadImage(id: string, file: File) {
       return request<{ image_key: string; updated_at: string }>(`/api/recipes/${id}/image`, {
         method: 'POST',
         headers: { 'Content-Type': file.type || 'image/jpeg' },
