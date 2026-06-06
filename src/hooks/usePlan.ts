@@ -61,7 +61,9 @@ export function usePlan() {
     await refetch()
   }, [refetch])
 
-  const pickIds = new Set([...picks, ...cook].map((i) => i.recipe.id))
+  // Only current picks gate the swipe/recipes "+" — dishes you're cooking this week
+  // become pickable again for next week's selection.
+  const pickIds = new Set(picks.map((i) => i.recipe.id))
 
   return { picks, cook, loading, pickIds, addPick, removeItem, patchItem, beginWeek, clearPicks, refetch }
 }

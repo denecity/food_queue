@@ -54,8 +54,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     .first<{ id: string; servings: number }>()
   if (!recipe) return badRequest('recipe not found')
 
-  const dupe = await env.DB.prepare('SELECT id, stage FROM plan_items WHERE recipe_id = ?').bind(recipeId).first<{ id: string; stage: string }>()
-  if (dupe) return json({ id: dupe.id, stage: dupe.stage, alreadyInPlan: true })
+  // Only dedupe against current picks — a dish you're cooking this week can be re-picked for next week.
+  const dupe = await env.DB.prepare("SELECT id FROM plan_items WHERE recipe_id = ? AND stage = 'pick'").bind(recipeId).first<{ id: string }>()
+  if (dupe) return json({ id: dupe.id, stage: 'pick', alreadyInPlan: true })
 
   const maxPos = await env.DB.prepare("SELECT COALESCE(MAX(position), 0) AS m FROM plan_items WHERE stage = 'pick'").first<{ m: number }>()
   const id = uuid()

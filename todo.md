@@ -1,0 +1,2 @@
+- right now when the week cycles, the chosen recipes in the recipe list dont get reset (you cant pick them if you have picked them last week). It should always update from the current selected dishes list
+- you have to go to food.mykinsky.org/ for some reason to open the page. should just be food.mykinsky.org
