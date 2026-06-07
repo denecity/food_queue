@@ -91,6 +91,7 @@ export default function App() {
             onRemove={grocery.remove}
             onBuild={grocery.build}
             onClearChecked={grocery.clearChecked}
+            onSync={grocery.sync}
           />
         )}
         {tab === 'cook' && (

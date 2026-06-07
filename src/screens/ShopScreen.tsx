@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { GroceryItem } from '../lib/types'
 import { CATEGORY_ORDER, categoryMeta, formatQty } from '../lib/ui'
 
@@ -10,6 +10,7 @@ export function ShopScreen({
   onRemove,
   onBuild,
   onClearChecked,
+  onSync,
 }: {
   items: GroceryItem[]
   loading: boolean
@@ -18,8 +19,22 @@ export function ShopScreen({
   onRemove: (id: string) => void
   onBuild: () => void
   onClearChecked: () => void
+  onSync: () => void
 }) {
   const [text, setText] = useState('')
+
+  // Live multi-device sync while shopping: poll every 4s + on focus (only while this tab is open).
+  useEffect(() => {
+    const id = setInterval(onSync, 4000)
+    const onVis = () => onSync()
+    document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('focus', onVis)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener('focus', onVis)
+    }
+  }, [onSync])
   const checkedCount = items.filter((i) => i.checked).length
 
   const groups = CATEGORY_ORDER.map((cat) => ({
@@ -39,7 +54,12 @@ export function ShopScreen({
   return (
     <div className="px-4 pt-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-ink">Shopping list</h1>
+        <h1 className="text-xl font-bold text-ink flex items-center gap-2">
+          Shopping list
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-like" title="Live — syncs across devices">
+            <span className="w-1.5 h-1.5 rounded-full bg-like animate-pulse" /> live
+          </span>
+        </h1>
         <span className="text-sm text-ink-dim">{items.length - checkedCount} left</span>
       </div>
 
