@@ -131,7 +131,11 @@ DELETE /api/grocery/:id             remove
 POST   /api/grocery/build           regenerate from week plan (merge+preserve checks)
 POST   /api/grocery/clear-checked   remove checked items
 
-POST   /api/generate                {prompt} → Claude → draft recipe JSON (not saved)
+GET    /api/models                  models available for AI generation (+ default)
+POST   /api/generate                {prompt, model?} → Claude → draft recipe JSON (not saved)
+
+POST   /mcp                         Claude connector — remote MCP server (Streamable HTTP).
+                                    Tools cover recipes / plan / grocery CRUD (read + edit).
 ```
 
 ---
@@ -156,7 +160,10 @@ POST   /api/generate                {prompt} → Claude → draft recipe JSON (n
 All fields + ingredient-row editor (name/qty/unit/category) + tag chips + rating selectors
 (yumminess slider 0–10, effort 0–4, perishability segmented, health segmented) + photo
 upload (R2) + instructions. **✨ Generate** prompt box → `/api/generate` → prefills the
-form as an editable draft before saving.
+form as an editable draft before saving. A **model picker** (from `GET /api/models`) lets
+the user choose which Claude model generates the draft. Photos can be attached while
+**creating** a new recipe too — the picked file is held locally and uploaded to R2 right
+after the recipe is first saved.
 
 ---
 

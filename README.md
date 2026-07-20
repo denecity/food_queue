@@ -42,8 +42,11 @@ For the AI generate endpoint locally, put your key in a `.dev.vars` file (gitign
 
 ```
 ANTHROPIC_API_KEY=sk-ant-...
-# GENERATE_MODEL=claude-sonnet-4-6   # optional: cheaper than the default opus
+# GENERATE_MODEL=claude-sonnet-5   # optional: sets the default model pre-selected in the UI
 ```
+
+The recipe editor's **✨ Generate** box has a model picker (Opus 4.8 / Sonnet 5 / Haiku 4.5);
+`GENERATE_MODEL`, if set to one of those, just changes which is selected by default.
 
 ---
 
@@ -73,14 +76,38 @@ npm run pages:deploy       # builds, then wrangler pages deploy dist
 - **R2 binding:** variable `IMAGES` → `foodqueue-images`
 - **Secret:** `ANTHROPIC_API_KEY` (`npx wrangler pages secret put ANTHROPIC_API_KEY`)
 - **Optional vars:** `GENERATE_MODEL` (default `claude-opus-4-8`), `GENERATE_SECRET`
-  (if set, `/api/generate` requires header `x-generate-secret`).
+  (if set, `/api/generate` requires header `x-generate-secret`), `MCP_SECRET`
+  (if set, the `/mcp` connector requires it — see below).
 
 > ⚠️ **No auth** by design — keep the deployed URL private. Anyone with the URL can
 > trigger `/api/generate` (your Claude spend). Set `GENERATE_SECRET` if that becomes a problem.
 
 ---
 
+## Claude connector (MCP)
+
+`/mcp` is a remote **MCP server** (Streamable HTTP) that lets Claude read and edit the
+whole app: recipes, the plan (selected dishes) and the grocery list.
+
+**Add it in Claude** (Settings → Connectors → *Add custom connector*) with the URL
+`https://<your-domain>/mcp`. Then Claude can e.g. *"add a cozy tofu stew and put it in this
+week's picks"* or *"check off everything in the produce aisle"*.
+
+Tools: `list_recipes`, `get_recipe`, `create_recipe`, `update_recipe`, `delete_recipe`,
+`mark_recipe_cooked`, `list_plan`, `add_to_plan`, `remove_plan_item`, `update_plan_item`,
+`begin_week`, `list_grocery`, `add_grocery_item`, `update_grocery_item`,
+`remove_grocery_item`, `build_grocery_from_plan`, `clear_checked_grocery`.
+
+> ⚠️ Like the rest of the app the endpoint is **open by default** — keep the URL private.
+> Optionally set the `MCP_SECRET` env var; the endpoint then requires it as
+> `Authorization: Bearer <secret>` or a `?key=<secret>` query param (handy for MCP clients
+> that let you set headers or a URL). Test it: `curl -X POST https://<domain>/mcp -d
+> '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'`.
+
+---
+
 ## API
 `/api/recipes` (CRUD, `/:id/cooked`, `/:id/image`) · `/api/images/<key>` ·
 `/api/plan` (`?stage=pick|cook`, `/begin-week`, `/clear`) · `/api/grocery` (`/build`,
-`/clear-checked`) · `/api/generate`. See [SPEC.md](SPEC.md) §4.
+`/clear-checked`) · `/api/models` · `/api/generate` · `/mcp` (Claude connector).
+See [SPEC.md](SPEC.md) §4.

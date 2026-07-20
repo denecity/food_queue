@@ -6,6 +6,7 @@ export interface Env {
   ANTHROPIC_API_KEY?: string
   GENERATE_MODEL?: string
   GENERATE_SECRET?: string
+  MCP_SECRET?: string
 }
 
 export type Perishability = 'high' | 'mid' | 'low'

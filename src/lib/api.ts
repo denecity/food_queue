@@ -1,4 +1,4 @@
-import type { GroceryItem, PlanItem, Recipe, RecipeDraft } from './types'
+import type { GroceryItem, ModelOption, PlanItem, Recipe, RecipeDraft } from './types'
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -104,10 +104,14 @@ export const api = {
     },
   },
 
-  generate(prompt: string, current?: Partial<RecipeDraft>) {
+  generate(prompt: string, current?: Partial<RecipeDraft>, model?: string) {
     return request<RecipeDraft & { source: 'ai' }>('/api/generate', {
       method: 'POST',
-      body: JSON.stringify({ prompt, current }),
+      body: JSON.stringify({ prompt, current, model }),
     })
+  },
+
+  models() {
+    return request<{ models: ModelOption[]; default: string }>('/api/models')
   },
 }

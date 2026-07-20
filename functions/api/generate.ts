@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { Env } from '../_lib/types'
 import { json, readJson, badRequest } from '../_lib/http'
+import { resolveModel } from '../_lib/models'
 
 const SYSTEM = `You are a recipe assistant for a personal meal-planning app used by two people.
 Given a short prompt, produce ONE complete recipe by calling the create_recipe tool.
@@ -76,7 +77,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return json({ error: 'ANTHROPIC_API_KEY is not configured on the server.' }, 500)
   }
 
-  const body = await readJson<{ prompt?: string; current?: unknown }>(request)
+  const body = await readJson<{ prompt?: string; current?: unknown; model?: string }>(request)
   const prompt = body.prompt?.trim()
   if (!prompt) return badRequest('prompt is required')
 
@@ -85,7 +86,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     : prompt
 
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
-  const model = env.GENERATE_MODEL || 'claude-opus-4-8'
+  // Use the model the user picked (if it's one of the allowed options), else the app default.
+  const model = resolveModel(body.model, env)
 
   try {
     const message = await client.messages.create({

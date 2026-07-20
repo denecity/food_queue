@@ -16,3 +16,4 @@ bucket_name = "foodqueue-images"
 #   ANTHROPIC_API_KEY   - required for /api/generate
 #   GENERATE_MODEL      - optional, defaults to claude-sonnet-4-6
 #   GENERATE_SECRET     - optional, if set the generate endpoint requires header x-generate-secret
+#   MCP_SECRET          - optional, if set the /mcp connector requires Authorization: Bearer <secret> (or ?key=)

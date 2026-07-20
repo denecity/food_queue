@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import type { Health, Ingredient, Perishability, Recipe, RecipeDraft } from '../lib/types'
+import { useEffect, useRef, useState } from 'react'
+import type { Health, Ingredient, ModelOption, Perishability, Recipe, RecipeDraft } from '../lib/types'
 import { api } from '../lib/api'
 import { toast } from '../lib/toast'
 import { EFFORT_LABELS, HEALTH_OPTIONS, PERISH_OPTIONS, recipeGradient, recipeImageUrl } from '../lib/ui'
@@ -60,10 +60,26 @@ export function RecipeEditor({
   const [currentId, setCurrentId] = useState<string | null>(recipe?.id ?? null)
   const [imgKey, setImgKey] = useState<string | null>(recipe?.image_key ?? null)
   const [imgVersion, setImgVersion] = useState(recipe?.updated_at ?? '')
+  // For brand-new recipes we hold the picked photo locally and upload it once the recipe exists.
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [pendingPreview, setPendingPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [prompt, setPrompt] = useState('')
   const [generating, setGenerating] = useState(false)
+  const [models, setModels] = useState<ModelOption[]>([])
+  const [model, setModel] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // Load the models the user can generate with (and pre-select the app default).
+  useEffect(() => {
+    let alive = true
+    api.models().then((res) => {
+      if (!alive) return
+      setModels(res.models)
+      setModel(res.default)
+    }).catch(() => { /* generation still works with the server default */ })
+    return () => { alive = false }
+  }, [])
 
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => ({ ...d, [k]: v }))
 
@@ -99,6 +115,17 @@ export function RecipeEditor({
       else {
         const created = await api.recipes.create(payload())
         setCurrentId(created.id)
+        // Upload the photo the user picked before the recipe existed.
+        if (pendingFile) {
+          try {
+            const res = await api.recipes.uploadImage(created.id, pendingFile)
+            setImgKey(res.image_key)
+            setImgVersion(res.updated_at)
+            clearPending()
+          } catch {
+            toast('Recipe saved, but the photo failed to upload', 'error')
+          }
+        }
       }
       toast('Saved', 'success')
       onSaved()
@@ -133,7 +160,7 @@ export function RecipeEditor({
         perishability: draft.perishability, health: draft.health, yumminess: draft.yumminess,
         prep_minutes: draft.prep_minutes, cook_minutes: draft.cook_minutes,
         instructions: draft.instructions, tags: draft.tags, ingredients: draft.ingredients,
-      } : undefined)
+      } : undefined, model || undefined)
       setDraft((d) => ({
         ...d,
         // Never overwrite a name the user already set.
@@ -163,9 +190,26 @@ export function RecipeEditor({
     }
   }
 
+  function clearPending() {
+    setPendingFile(null)
+    setPendingPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return null
+    })
+  }
+
   async function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file || !currentId) return
+    if (!file) return
+    // Existing recipe: upload straight away. New recipe: stash it and upload on save.
+    if (!currentId) {
+      setPendingFile(file)
+      setPendingPreview((prev) => {
+        if (prev) URL.revokeObjectURL(prev)
+        return URL.createObjectURL(file)
+      })
+      return
+    }
     try {
       const res = await api.recipes.uploadImage(currentId, file)
       setImgKey(res.image_key)
@@ -178,6 +222,7 @@ export function RecipeEditor({
   }
 
   const img = imgKey ? recipeImageUrl({ image_key: imgKey, updated_at: imgVersion }) : null
+  const preview = img ?? pendingPreview
 
   return (
     <div className="fixed inset-0 z-50 bg-bg-base overflow-y-auto animate-fade-in">
@@ -201,6 +246,21 @@ export function RecipeEditor({
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
             />
+            {models.length > 0 && (
+              <div className="flex items-center gap-2">
+                <label htmlFor="gen-model" className="label !mb-0 shrink-0">Model</label>
+                <select
+                  id="gen-model"
+                  className="field !py-1.5 text-sm"
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                >
+                  {models.map((m) => (
+                    <option key={m.id} value={m.id}>{m.label} — {m.hint}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <button onClick={generate} disabled={generating || !prompt.trim()} className="btn-primary w-full disabled:opacity-50">
               {generating ? 'Generating…' : '✨ Generate draft'}
             </button>
@@ -230,23 +290,24 @@ export function RecipeEditor({
           {/* Photo */}
           <div>
             <label className="label">Photo</label>
-            {currentId ? (
-              <div className="flex items-center gap-3">
-                <div className="w-24 h-24 rounded-xl overflow-hidden border border-line flex items-center justify-center shrink-0"
-                  style={img ? undefined : { background: recipeGradient({ id: currentId, name: draft.name }) }}>
-                  {img ? <img src={img} alt="" className="w-full h-full object-cover" /> : <span className="text-4xl">{draft.emoji}</span>}
-                </div>
-                <div className="flex flex-col gap-2">
-                  <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPickFile} />
-                  <button type="button" className="btn-ghost text-sm" onClick={() => fileRef.current?.click()}>📷 {img ? 'Replace' : 'Upload'} photo</button>
-                  {img && (
-                    <button type="button" className="text-skip text-sm" onClick={async () => { await api.recipes.removeImage(currentId); setImgKey(null); onSaved() }}>Remove</button>
-                  )}
-                </div>
+            <div className="flex items-center gap-3">
+              <div className="w-24 h-24 rounded-xl overflow-hidden border border-line flex items-center justify-center shrink-0"
+                style={preview ? undefined : { background: recipeGradient({ id: currentId ?? draft.name, name: draft.name }) }}>
+                {preview ? <img src={preview} alt="" className="w-full h-full object-cover" /> : <span className="text-4xl">{draft.emoji}</span>}
               </div>
-            ) : (
-              <p className="text-xs text-ink-dim">Save the recipe first, then reopen to add a photo.</p>
-            )}
+              <div className="flex flex-col gap-2">
+                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPickFile} />
+                <button type="button" className="btn-ghost text-sm" onClick={() => fileRef.current?.click()}>📷 {preview ? 'Replace' : 'Upload'} photo</button>
+                {img && currentId ? (
+                  <button type="button" className="text-skip text-sm" onClick={async () => { await api.recipes.removeImage(currentId); setImgKey(null); onSaved() }}>Remove</button>
+                ) : pendingPreview ? (
+                  <button type="button" className="text-skip text-sm" onClick={clearPending}>Remove</button>
+                ) : null}
+                {!currentId && pendingPreview && (
+                  <p className="text-xs text-ink-dim">Uploads when you save.</p>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Ratings */}

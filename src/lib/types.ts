@@ -72,6 +72,12 @@ export interface GroceryItem {
   created_at: string
 }
 
+export interface ModelOption {
+  id: string
+  label: string
+  hint: string
+}
+
 export type Tab = 'swipe' | 'plan' | 'shop' | 'cook' | 'recipes'
 
 export type RecipeSort =
