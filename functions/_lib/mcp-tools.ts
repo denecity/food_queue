@@ -111,11 +111,12 @@ export const TOOLS: McpTool[] = [
   },
   {
     name: 'update_plan_item',
-    description: 'Update a plan item by its plan-item id. Marking a cook-stage item cooked also bumps the recipe\'s cooked count.',
+    description: 'Update a plan item by its plan-item id. Set stage to "cook" to promote a single pick into this week\'s cook list (e.g. once its ingredients are bought) or "pick" to send it back. Marking a cook-stage item cooked also bumps the recipe\'s cooked count.',
     inputSchema: {
       type: 'object',
       properties: {
         id: { type: 'string' },
+        stage: { type: 'string', enum: ['pick', 'cook'], description: 'Promote a pick to "cook", or send a cook item back to "pick". Promoting starts it uncooked.' },
         cooked: { type: 'boolean' },
         joker: { type: 'boolean', description: 'Override the perishability eat-first order' },
         position: { type: 'integer' },
@@ -126,7 +127,7 @@ export const TOOLS: McpTool[] = [
   },
   {
     name: 'begin_week',
-    description: 'Shopping is done: discard last week\'s cook list, promote the picks to the cook stage, and clear the grocery list.',
+    description: 'Shopping is done: clear out dishes already cooked (keeping any still-uncooked cook items), promote all remaining picks to the cook stage, and clear the grocery list. To promote a single dish instead, use update_plan_item with stage:"cook".',
     inputSchema: { type: 'object', properties: {} },
   },
   {
@@ -380,6 +381,10 @@ export async function callTool(env: Env, name: string, args: Record<string, any>
       if ('joker' in args) { sets.push('joker = ?'); binds.push(args.joker ? 1 : 0) }
       if ('position' in args) { sets.push('position = ?'); binds.push(Number(args.position) || 0) }
       if ('planned_servings' in args) { sets.push('planned_servings = ?'); binds.push(Number(args.planned_servings) || 5) }
+      if (args.stage === 'pick' || args.stage === 'cook') {
+        sets.push('stage = ?'); binds.push(args.stage)
+        if (args.stage === 'cook' && !('cooked' in args)) { sets.push('cooked = ?'); binds.push(0) }
+      }
       if (sets.length === 0) return { ok: true }
       binds.push(id)
       const stmts = [env.DB.prepare(`UPDATE plan_items SET ${sets.join(', ')} WHERE id = ?`).bind(...binds)]
@@ -392,13 +397,13 @@ export async function callTool(env: Env, name: string, args: Record<string, any>
     }
 
     case 'begin_week': {
-      const picks = await env.DB.prepare("SELECT COUNT(*) AS n FROM plan_items WHERE stage = 'pick'").first<{ n: number }>()
       await env.DB.batch([
-        env.DB.prepare("DELETE FROM plan_items WHERE stage = 'cook'"),
+        env.DB.prepare("DELETE FROM plan_items WHERE stage = 'cook' AND cooked = 1"),
         env.DB.prepare("UPDATE plan_items SET stage = 'cook', cooked = 0 WHERE stage = 'pick'"),
         env.DB.prepare('DELETE FROM grocery_items'),
       ])
-      return { ok: true, cooking: Number(picks?.n ?? 0) }
+      const cooking = await env.DB.prepare("SELECT COUNT(*) AS n FROM plan_items WHERE stage = 'cook'").first<{ n: number }>()
+      return { ok: true, cooking: Number(cooking?.n ?? 0) }
     }
 
     case 'list_grocery': {

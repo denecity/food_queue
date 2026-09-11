@@ -1,4 +1,0 @@
-- claude fill should not be able to overwrite the recipe name
-- when generating with claude, give the existing recipe incase its just a request to edit something
-- the recipe list needs to be sorted by supermarket aisle or specialty/asian food store etc. these categories should be assigned in the ingredients panel and be usually filled in by claude. the sorting is there to make shopping as quick and organized as possible
-- in the shopping list, for each item, have a small marker or small text signifying from which dish/recipe that item comes from (so that when there is no quantity or specificity i can just think about what special variant that specific dish needs)

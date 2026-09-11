@@ -92,9 +92,15 @@ cooked INT 0/1, joker INT 0/1` (override perish order), `added_at TEXT`.
 - `pick` — dishes swiped/added for the **upcoming shop**. The grocery list builds from these.
 - `cook` — this week's **active meals** (post-shop), perishability-ordered "eat first".
 
-**Begin week** (`POST /api/plan/begin-week`) is the manual hinge pressed once shopping is
-done: discard last week's `cook` items (exhausted) → promote `pick` → `cook` (reset cooked)
-→ clear the grocery list. "Weeks" are loose: it just propagates one shopping cycle forward.
+**Promote one dish** (`PATCH /api/plan/:id {stage}`): a pick can be moved to `cook`
+individually (reset uncooked) as soon as its ingredients are bought — for partial shops where
+only some recipes are ready. Setting `stage:'pick'` sends a cook item back. The Plan screen
+shows each pick's readiness (`✓ ready` / `🛒 bought/total`, from its checked grocery lines).
+
+**Begin week** (`POST /api/plan/begin-week`) is the bulk hinge pressed once shopping is done:
+clear out **already-cooked** `cook` items (keeping any still-uncooked ones, e.g. individually
+promoted earlier) → promote all `pick` → `cook` (reset cooked) → clear the grocery list.
+"Weeks" are loose: it just propagates one shopping cycle forward.
 Toggling a `cook` item cooked also bumps the recipe's `times_cooked` / `last_cooked`.
 
 ### `grocery_items` (shopping list — source of truth)
@@ -121,7 +127,7 @@ GET    /api/images/:key             stream from R2 (cached)
 GET    /api/plan                    current plan items (joined recipe, perish-ordered)
 POST   /api/plan                    add recipe to plan {recipe_id}
 DELETE /api/plan/:id                remove item
-PATCH  /api/plan/:id                {cooked?, joker?, position?}
+PATCH  /api/plan/:id                {cooked?, joker?, position?, planned_servings?, stage?}
 POST   /api/plan/clear              empty the plan
 
 GET    /api/grocery                 list (grouped by category)
@@ -147,8 +153,9 @@ POST   /mcp                         Claude connector — remote MCP server (Stre
    Card = R2 photo (or emoji+gradient) + name + cuisine + rating chips (yum/effort/perish/
    health) + tags.
 2. **Plan** 📋 — the **picks** for the next shop, perishability-ordered, with effort-balance
-   hint (low/mid split) and per-item servings/remove. Hosts **Begin week** (after shopping)
-   and "Build shopping list →".
+   hint (low/mid split) and per-item servings/remove. Each pick shows a readiness chip and a
+   **Cook ▸** button to promote it individually once its ingredients are bought. Hosts
+   **Begin week** (promote all, after shopping) and "Build shopping list →".
 3. **Shop** 🛒 — grocery items grouped by category/aisle, check off, add manual, "Rebuild
    from picks", "Clear checked".
 4. **Cook** 🍳 — this week's **cook** list, "eat first" perishability order, cooked toggle

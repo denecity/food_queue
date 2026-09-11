@@ -40,11 +40,21 @@ export function usePlan() {
     }
   }, [refetch])
 
-  const patchItem = useCallback(async (id: string, body: Partial<Pick<PlanItem, 'cooked' | 'joker' | 'planned_servings'>>) => {
+  const patchItem = useCallback(async (id: string, body: Partial<Pick<PlanItem, 'cooked' | 'joker' | 'planned_servings' | 'stage'>>) => {
     setCook((c) => c.map((i) => (i.id === id ? { ...i, ...body } : i)))
     setPicks((p) => p.map((i) => (i.id === id ? { ...i, ...body } : i)))
     try {
       await api.plan.patch(id, body)
+    } finally {
+      refetch()
+    }
+  }, [refetch])
+
+  // Promote a single pick into this week's cook list (its ingredients are bought).
+  const promoteItem = useCallback(async (id: string) => {
+    setPicks((p) => p.filter((i) => i.id !== id))
+    try {
+      await api.plan.patch(id, { stage: 'cook' })
     } finally {
       refetch()
     }
@@ -65,5 +75,5 @@ export function usePlan() {
   // become pickable again for next week's selection.
   const pickIds = new Set(picks.map((i) => i.recipe.id))
 
-  return { picks, cook, loading, pickIds, addPick, removeItem, patchItem, beginWeek, clearPicks, refetch }
+  return { picks, cook, loading, pickIds, addPick, removeItem, patchItem, promoteItem, beginWeek, clearPicks, refetch }
 }

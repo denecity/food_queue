@@ -1,4 +1,4 @@
-import type { PlanItem, Recipe } from '../lib/types'
+import type { GroceryItem, PlanItem, Recipe } from '../lib/types'
 import { perishMeta, recipeGradient, recipeImageUrl } from '../lib/ui'
 
 function Thumb({ recipe }: { recipe: Recipe }) {
@@ -11,15 +11,27 @@ function Thumb({ recipe }: { recipe: Recipe }) {
   )
 }
 
+/** How much of a recipe's shopping is done, from the grocery lines that reference it. */
+function readiness(recipeId: string, grocery: GroceryItem[]) {
+  const lines = grocery.filter((g) => g.recipe_ids.includes(recipeId))
+  const total = lines.length
+  const bought = lines.filter((g) => g.checked).length
+  return { total, bought, ready: total > 0 && bought === total }
+}
+
 export function PlanScreen({
   picks,
+  grocery,
   onRemove,
+  onPromote,
   onTap,
   onBuildList,
   onBeginWeek,
 }: {
   picks: PlanItem[]
+  grocery: GroceryItem[]
   onRemove: (id: string) => void
+  onPromote: (id: string) => void
   onTap: (recipe: Recipe) => void
   onBuildList: () => void
   onBeginWeek: () => void
@@ -54,20 +66,33 @@ export function PlanScreen({
           <div className="space-y-2">
             {picks.map((p) => {
               const pm = perishMeta(p.recipe.perishability)
+              const r = readiness(p.recipe.id, grocery)
               return (
-                <div key={p.id} className="card card-hover p-3 flex items-center gap-3">
+                <div key={p.id} className="card card-hover p-3 flex items-center gap-2">
                   <button onClick={() => onTap(p.recipe)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
                     <Thumb recipe={p.recipe} />
                     <div className="min-w-0">
                       <div className="font-semibold text-ink truncate">{p.recipe.name}</div>
                       <div className="flex items-center gap-2 text-xs text-ink-dim">
                         <span style={{ color: pm.color }}>● {pm.label}</span>
-                        <span>★ {p.recipe.yumminess}</span>
                         <span>⚡ {p.recipe.effort}</span>
+                        {r.total > 0 && (r.ready
+                          ? <span className="text-like font-medium">✓ ready</span>
+                          : <span title="ingredients checked off in the shopping list">🛒 {r.bought}/{r.total}</span>)}
                       </div>
                     </div>
                   </button>
-                  <button onClick={() => onRemove(p.id)} className="text-ink-dim hover:text-skip px-2 text-lg shrink-0">✕</button>
+                  <button
+                    onClick={() => {
+                      if (!r.ready && r.total > 0 && !confirm(`Not all ingredients for "${p.recipe.name}" are checked off yet — move it to Cook anyway?`)) return
+                      onPromote(p.id)
+                    }}
+                    title="Move this dish to Cook"
+                    className={`shrink-0 rounded-lg px-3 py-2 text-sm font-semibold ${r.ready ? 'bg-like text-bg-base' : 'btn-ghost !px-3'}`}
+                  >
+                    Cook ▸
+                  </button>
+                  <button onClick={() => onRemove(p.id)} className="text-ink-dim hover:text-skip px-1 text-lg shrink-0">✕</button>
                 </div>
               )
             })}
@@ -75,9 +100,10 @@ export function PlanScreen({
 
           <div className="space-y-2 pt-2">
             <button onClick={onBuildList} className="btn-ghost w-full">🛒 Build shopping list →</button>
-            <button onClick={onBeginWeek} className="btn-primary w-full">✅ Begin week (shopping done)</button>
+            <button onClick={onBeginWeek} className="btn-primary w-full">✅ Begin week (all shopping done)</button>
             <p className="text-xs text-ink-faint text-center px-4">
-              "Begin week" moves these picks into <b>Cook</b>, clears the shopping list, and starts a fresh cycle.
+              Got only some of the shop? Tap <b>Cook ▸</b> on the dishes you can make now — the rest stay here for next time.
+              <b> Begin week</b> promotes everything at once and clears the shopping list.
             </p>
           </div>
         </>

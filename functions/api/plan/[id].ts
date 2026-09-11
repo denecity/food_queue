@@ -22,6 +22,12 @@ export const onRequestPatch: PagesFunction<Env> = async ({ params, request, env 
   if ('joker' in body) { sets.push('joker = ?'); binds.push(body.joker ? 1 : 0) }
   if ('position' in body) { sets.push('position = ?'); binds.push(Number(body.position) || 0) }
   if ('planned_servings' in body) { sets.push('planned_servings = ?'); binds.push(Number(body.planned_servings) || 5) }
+  // Move a dish between stages: 'cook' promotes a pick into this week's cook list
+  // (once its ingredients are bought), 'pick' sends it back. Promoting starts fresh (uncooked).
+  if (body.stage === 'pick' || body.stage === 'cook') {
+    sets.push('stage = ?'); binds.push(body.stage)
+    if (body.stage === 'cook' && !('cooked' in body)) { sets.push('cooked = ?'); binds.push(0) }
+  }
 
   if (sets.length === 0) return json({ ok: true })
   binds.push(id)

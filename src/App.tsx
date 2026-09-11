@@ -54,11 +54,16 @@ export default function App() {
       toast('No picks to start the week with', 'info')
       return
     }
-    if (!confirm('Done shopping? This moves your picks into Cook and clears the shopping list.')) return
+    if (!confirm('Done shopping? This moves all remaining picks into Cook and clears the shopping list.')) return
     const res = await plan.beginWeek()
     grocery.refetch()
     toast(`Week started — ${res.cooking} dishes to cook 🍳`, 'success')
     setTab('cook')
+  }
+
+  async function promote(id: string) {
+    await plan.promoteItem(id)
+    toast('Moved to Cook 🍳', 'success')
   }
 
   const badges = {
@@ -76,7 +81,9 @@ export default function App() {
         {tab === 'plan' && (
           <PlanScreen
             picks={plan.picks}
+            grocery={grocery.items}
             onRemove={plan.removeItem}
+            onPromote={promote}
             onTap={openEdit}
             onBuildList={buildList}
             onBeginWeek={beginWeek}

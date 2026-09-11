@@ -17,7 +17,7 @@ export function CookScreen({
   onTap,
 }: {
   cook: PlanItem[]
-  onPatch: (id: string, body: { cooked?: boolean; joker?: boolean }) => void
+  onPatch: (id: string, body: { cooked?: boolean; joker?: boolean; stage?: 'pick' }) => void
   onTap: (recipe: Recipe) => void
 }) {
   const done = cook.filter((c) => c.cooked).length
@@ -69,6 +69,13 @@ export function CookScreen({
                     title="Joker — eat out of perishability order"
                   >
                     🃏
+                  </button>
+                  <button
+                    onClick={() => onPatch(c.id, { stage: 'pick' })}
+                    className="shrink-0 text-ink-faint hover:text-ink px-1 text-base"
+                    title="Move back to Picks"
+                  >
+                    ↩
                   </button>
                 </div>
               )

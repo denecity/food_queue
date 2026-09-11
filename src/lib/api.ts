@@ -1,4 +1,4 @@
-import type { GroceryItem, ModelOption, PlanItem, Recipe, RecipeDraft } from './types'
+import type { GroceryItem, ModelOption, PlanItem, Recipe, RecipeDraft, Stage } from './types'
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -69,7 +69,7 @@ export const api = {
         body: JSON.stringify({ recipe_id: recipeId }),
       })
     },
-    patch(id: string, body: Partial<Pick<PlanItem, 'cooked' | 'joker' | 'position' | 'planned_servings'>>) {
+    patch(id: string, body: Partial<Pick<PlanItem, 'cooked' | 'joker' | 'position' | 'planned_servings'>> & { stage?: Stage }) {
       return request<{ ok: boolean }>(`/api/plan/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
     },
     remove(id: string) {
