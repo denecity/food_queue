@@ -44,6 +44,9 @@ export const api = {
     markCooked(id: string) {
       return request<Recipe>(`/api/recipes/${id}/cooked`, { method: 'POST' })
     },
+    cookability() {
+      return request<Record<string, { have: number; total: number }>>('/api/cookability')
+    },
     async uploadImage(id: string, file: File) {
       return request<{ image_key: string; updated_at: string }>(`/api/recipes/${id}/image`, {
         method: 'POST',

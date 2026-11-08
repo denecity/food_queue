@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ConsumePayload, PlanItem, Recipe, RecipeUsage, Tab } from './lib/types'
 import { api } from './lib/api'
 import { toast, ToastContainer } from './lib/toast'
 import { usePlan } from './hooks/usePlan'
 import { useGrocery } from './hooks/useGrocery'
 import { useStock } from './hooks/useStock'
+import { useCookability } from './hooks/useCookability'
 import { BottomNav } from './components/BottomNav'
 import { RecipeEditor } from './components/RecipeEditor'
 import { SwipeScreen } from './screens/SwipeScreen'
@@ -25,6 +26,12 @@ export default function App() {
   const plan = usePlan()
   const grocery = useGrocery()
   const stock = useStock()
+  const cookability = useCookability()
+
+  // Keep the "% in stock" badges fresh when landing on the tabs that show them.
+  useEffect(() => {
+    if (tab === 'swipe' || tab === 'recipes') cookability.refetch()
+  }, [tab, cookability.refetch])
 
   function openNew() {
     setEditor({ open: true, recipe: null })
@@ -92,6 +99,7 @@ export default function App() {
     try {
       if ((payload.consume?.length ?? 0) > 0 || (payload.add?.length ?? 0) > 0) await stock.consume(payload)
       await plan.patchItem(item.id, { cooked: true })
+      cookability.refetch()
       toast('Cooked 🍳 — stock updated', 'success')
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Could not finish', 'error')
@@ -114,7 +122,7 @@ export default function App() {
     <div className="min-h-screen bg-bg-base text-ink">
       <main className="max-w-2xl mx-auto" style={{ paddingBottom: 'calc(var(--nav-h) + var(--safe-bottom) + 24px)' }}>
         {tab === 'swipe' && (
-          <SwipeScreen pickIds={plan.pickIds} onPick={addPick} onTap={openEdit} />
+          <SwipeScreen pickIds={plan.pickIds} cookability={cookability.map} onPick={addPick} onTap={openEdit} />
         )}
         {tab === 'plan' && (
           <PlanScreen
@@ -156,6 +164,7 @@ export default function App() {
         {tab === 'recipes' && (
           <RecipesScreen
             pickIds={plan.pickIds}
+            cookability={cookability.map}
             onTap={openEdit}
             onNew={openNew}
             onAddPick={addPick}

@@ -2,16 +2,20 @@ import { useEffect, useRef, useState } from 'react'
 import type { Recipe } from '../lib/types'
 import { recipeGradient, recipeImageUrl } from '../lib/ui'
 import { RatingChips, TagRow } from './RatingChips'
+import { CookBadge } from './CookBadge'
+import type { Cookability } from '../hooks/useCookability'
 
 type Dir = 'like' | 'skip'
 const THRESHOLD = 110
 
 export function SwipeDeck({
   queue,
+  cookability,
   onDecide,
   onTap,
 }: {
   queue: Recipe[]
+  cookability: Cookability
   onDecide: (recipe: Recipe, dir: Dir) => void
   onTap: (recipe: Recipe) => void
 }) {
@@ -105,9 +109,12 @@ export function SwipeDeck({
                     <Stamp text="SKIP" color="#f87171" rot={12} className="right-5 top-5" opacity={skipOpacity} />
                   </>
                 )}
-                <div className="absolute bottom-3 left-4 right-4">
-                  <h2 className="text-2xl font-bold text-white drop-shadow">{r.emoji} {r.name}</h2>
-                  {r.cuisine && <p className="text-white/80 text-sm capitalize">{r.cuisine}</p>}
+                <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between gap-2">
+                  <div className="min-w-0">
+                    <h2 className="text-2xl font-bold text-white drop-shadow">{r.emoji} {r.name}</h2>
+                    {r.cuisine && <p className="text-white/80 text-sm capitalize">{r.cuisine}</p>}
+                  </div>
+                  <CookBadge entry={cookability[r.id]} className="mb-1 shrink-0 !text-xs" />
                 </div>
               </div>
               <div className="p-4 space-y-2 bg-bg-card">

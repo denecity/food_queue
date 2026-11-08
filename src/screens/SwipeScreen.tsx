@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 import type { Recipe } from '../lib/types'
 import { toast } from '../lib/toast'
 import { SwipeDeck } from '../components/SwipeDeck'
+import type { Cookability } from '../hooks/useCookability'
 
 const FILTERS = ['all', 'hot weather', 'cold weather', 'quick', 'high effort']
 
@@ -17,10 +18,12 @@ function shuffle<T>(arr: T[]): T[] {
 
 export function SwipeScreen({
   pickIds,
+  cookability,
   onPick,
   onTap,
 }: {
   pickIds: Set<string>
+  cookability: Cookability
   onPick: (recipeId: string) => Promise<unknown>
   onTap: (recipe: Recipe) => void
 }) {
@@ -85,7 +88,7 @@ export function SwipeScreen({
         </div>
       ) : (
         <>
-          <SwipeDeck queue={queue} onDecide={decide} onTap={onTap} />
+          <SwipeDeck queue={queue} cookability={cookability} onDecide={decide} onTap={onTap} />
           <div className="flex items-center justify-center gap-6 pt-1">
             <button
               onClick={() => decide(queue[0], 'skip')}

@@ -2,6 +2,8 @@ import { useEffect } from 'react'
 import { useRecipes } from '../hooks/useRecipes'
 import type { Recipe, RecipeSort } from '../lib/types'
 import { perishMeta, recipeGradient, recipeImageUrl } from '../lib/ui'
+import { CookBadge } from '../components/CookBadge'
+import type { Cookability } from '../hooks/useCookability'
 
 const SORTS: { value: RecipeSort; label: string }[] = [
   { value: 'yumminess_desc', label: 'Yummiest' },
@@ -13,12 +15,14 @@ const SORTS: { value: RecipeSort; label: string }[] = [
 
 export function RecipesScreen({
   pickIds,
+  cookability,
   onTap,
   onNew,
   onAddPick,
   registerRefetch,
 }: {
   pickIds: Set<string>
+  cookability: Cookability
   onTap: (recipe: Recipe) => void
   onNew: () => void
   onAddPick: (id: string) => void
@@ -59,7 +63,10 @@ export function RecipesScreen({
                     {img ? <img src={img} alt="" className="w-full h-full object-cover" /> : <span className="text-2xl">{r.emoji}</span>}
                   </div>
                   <div className="min-w-0">
-                    <div className="font-semibold text-ink truncate">{r.name}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-ink truncate">{r.name}</span>
+                      <CookBadge entry={cookability[r.id]} className="shrink-0" />
+                    </div>
                     <div className="flex items-center gap-2 text-xs text-ink-dim">
                       <span>★ {r.yumminess}</span>
                       <span>⚡ {r.effort}</span>
