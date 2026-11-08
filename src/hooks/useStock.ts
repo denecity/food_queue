@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api'
-import type { StockItem } from '../lib/types'
+import type { ConsumePayload, StockItem } from '../lib/types'
 import { toast } from '../lib/toast'
+
+const round = (n: number) => Math.round(n * 1000) / 1000
 
 export function useStock() {
   const [items, setItems] = useState<StockItem[]>([])
@@ -66,5 +68,42 @@ export function useStock() {
     }
   }, [load])
 
-  return { items, loading, add, patch, remove, refetch: () => load(false) }
+  /** Nudge a stock item by ±one step; hitting zero removes it. */
+  const increment = useCallback(async (item: StockItem, dir: 1 | -1) => {
+    const step = item.step > 0 ? item.step : 1
+    const next = round((item.quantity ?? 0) + dir * step)
+    if (next <= 0) return remove(item.id)
+    return patch(item.id, { quantity: next })
+  }, [patch, remove])
+
+  /** Apply a cook reconciliation (subtractions + adds); returns the fresh list. */
+  const consume = useCallback(async (payload: ConsumePayload) => {
+    pending.current++
+    try {
+      const updated = await api.stock.consume(payload)
+      setItems(updated)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Could not update stock', 'error')
+    } finally {
+      pending.current--
+    }
+  }, [])
+
+  /** Edit the register entry (canonical unit / step) behind an item; reloads to reflect everywhere. */
+  const editIngredient = useCallback(
+    async (ingredientId: string, body: { default_unit?: string | null; step?: number | null }) => {
+      pending.current++
+      try {
+        await api.ingredients.patch(ingredientId, body)
+      } catch (e) {
+        toast(e instanceof Error ? e.message : 'Could not update ingredient', 'error')
+      } finally {
+        pending.current--
+      }
+      load(false)
+    },
+    [load]
+  )
+
+  return { items, loading, add, patch, remove, increment, consume, editIngredient, refetch: () => load(false) }
 }

@@ -27,37 +27,55 @@ function ExpiryChip({ iso }: { iso: string | null }) {
   )
 }
 
+function Stepper({ onInc }: { onInc: (dir: 1 | -1) => void }) {
+  const cls =
+    'w-7 h-7 rounded-md border border-line text-ink-dim active:bg-bg-hover flex items-center justify-center text-lg leading-none select-none'
+  return {
+    minus: <button className={cls} onClick={() => onInc(-1)} aria-label="less">−</button>,
+    plus: <button className={cls} onClick={() => onInc(1)} aria-label="more">+</button>,
+  }
+}
+
 function StockRow({
   item,
   showLocation,
   open,
   onToggle,
+  onInc,
   onPatch,
+  onEditIngredient,
   onRemove,
 }: {
   item: StockItem
   showLocation?: boolean
   open: boolean
   onToggle: () => void
-  onPatch: (body: Partial<Pick<StockItem, 'quantity' | 'unit' | 'location' | 'expires_on'>>) => void
+  onInc: (dir: 1 | -1) => void
+  onPatch: (body: Partial<Pick<StockItem, 'quantity' | 'expires_on' | 'location'>>) => void
+  onEditIngredient: (body: { default_unit?: string | null; step?: number | null }) => void
   onRemove: () => void
 }) {
   const loc = locationMeta(item.location)
+  const step = Stepper({ onInc })
   return (
     <div className="rounded-lg border border-line overflow-hidden">
-      <button onClick={onToggle} className="w-full flex items-center gap-3 py-2 px-2.5 text-left active:bg-bg-hover">
-        <div className="flex-1 min-w-0">
+      <div className="flex items-center gap-2 py-2 px-2.5">
+        <button onClick={onToggle} className="flex-1 min-w-0 text-left">
           <div className="flex items-center gap-2">
             <span className="text-ink truncate">{item.ingredient}</span>
             {item.staple && <span className="shrink-0 text-[10px] text-ink-faint border border-line rounded px-1">staple</span>}
           </div>
-          <div className="flex items-center gap-2 text-sm text-ink-dim">
-            {(item.quantity != null || item.unit) && <span>{formatQty(item.quantity, item.unit)}</span>}
-            {showLocation && <span className="text-ink-faint">{loc.emoji} {loc.label}</span>}
-          </div>
-        </div>
+          {showLocation && <div className="text-xs text-ink-faint">{loc.emoji} {loc.label}</div>}
+        </button>
         <ExpiryChip iso={item.expires_on} />
-      </button>
+        <div className="flex items-center gap-1 shrink-0">
+          {step.minus}
+          <span className="text-sm text-ink tabular-nums min-w-[3.25rem] text-center">
+            {item.quantity != null || item.unit ? formatQty(item.quantity, item.unit) : '—'}
+          </span>
+          {step.plus}
+        </div>
+      </div>
 
       {open && (
         <div className="px-2.5 pb-3 pt-1 space-y-3 border-t border-line bg-bg-hover/40">
@@ -75,15 +93,32 @@ function StockRow({
                 }}
               />
             </label>
-            <label className="flex-1 text-xs text-ink-dim space-y-1">
+            <label className="w-24 text-xs text-ink-dim space-y-1">
               Unit
               <input
                 className="field !py-1.5"
                 defaultValue={item.unit ?? ''}
-                onBlur={(e) => onPatch({ unit: e.target.value.trim() || null })}
+                onBlur={(e) => {
+                  const u = e.target.value.trim() || null
+                  if (u !== (item.unit ?? null)) onEditIngredient({ default_unit: u })
+                }}
+              />
+            </label>
+            <label className="w-20 text-xs text-ink-dim space-y-1">
+              Step
+              <input
+                type="number"
+                inputMode="decimal"
+                className="field !py-1.5"
+                defaultValue={item.step}
+                onBlur={(e) => {
+                  const s = Number(e.target.value)
+                  if (Number.isFinite(s) && s > 0 && s !== item.step) onEditIngredient({ step: s })
+                }}
               />
             </label>
           </div>
+          <p className="text-[11px] text-ink-faint -mt-1">Unit &amp; step apply to this ingredient everywhere.</p>
 
           <label className="block text-xs text-ink-dim space-y-1">
             Expires
@@ -130,12 +165,16 @@ export function StockScreen({
   loading,
   onAdd,
   onPatch,
+  onIncrement,
+  onEditIngredient,
   onRemove,
 }: {
   items: StockItem[]
   loading: boolean
   onAdd: (body: { ingredient: string }) => void
-  onPatch: (id: string, body: Partial<Pick<StockItem, 'quantity' | 'unit' | 'location' | 'expires_on'>>) => void
+  onPatch: (id: string, body: Partial<Pick<StockItem, 'quantity' | 'expires_on' | 'location'>>) => void
+  onIncrement: (item: StockItem, dir: 1 | -1) => void
+  onEditIngredient: (ingredientId: string, body: { default_unit?: string | null; step?: number | null }) => void
   onRemove: (id: string) => void
 }) {
   const [text, setText] = useState('')
@@ -164,6 +203,16 @@ export function StockScreen({
   }
 
   const toggle = (id: string) => setOpenId((cur) => (cur === id ? null : id))
+
+  const rowProps = (i: StockItem) => ({
+    item: i,
+    open: openId === i.id,
+    onToggle: () => toggle(i.id),
+    onInc: (dir: 1 | -1) => onIncrement(i, dir),
+    onPatch: (b: Partial<Pick<StockItem, 'quantity' | 'expires_on' | 'location'>>) => onPatch(i.id, b),
+    onEditIngredient: (b: { default_unit?: string | null; step?: number | null }) => onEditIngredient(i.ingredient_id, b),
+    onRemove: () => onRemove(i.id),
+  })
 
   return (
     <div className="px-4 pt-4 space-y-5">
@@ -194,20 +243,10 @@ export function StockScreen({
         <>
           {soon.length > 0 && (
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-400 mb-1.5">
-                ⚠️ Expiring soon
-              </h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-400 mb-1.5">⚠️ Expiring soon</h3>
               <div className="space-y-1.5">
                 {soon.map((i) => (
-                  <StockRow
-                    key={i.id}
-                    item={i}
-                    showLocation
-                    open={openId === i.id}
-                    onToggle={() => toggle(i.id)}
-                    onPatch={(b) => onPatch(i.id, b)}
-                    onRemove={() => onRemove(i.id)}
-                  />
+                  <StockRow key={i.id} showLocation {...rowProps(i)} />
                 ))}
               </div>
             </div>
@@ -222,14 +261,7 @@ export function StockScreen({
                 </h3>
                 <div className="space-y-1.5">
                   {g.items.map((i) => (
-                    <StockRow
-                      key={i.id}
-                      item={i}
-                      open={openId === i.id}
-                      onToggle={() => toggle(i.id)}
-                      onPatch={(b) => onPatch(i.id, b)}
-                      onRemove={() => onRemove(i.id)}
-                    />
+                    <StockRow key={i.id} {...rowProps(i)} />
                   ))}
                 </div>
               </div>

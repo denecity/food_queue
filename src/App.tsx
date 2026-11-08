@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import type { Recipe, Tab } from './lib/types'
+import type { ConsumePayload, PlanItem, Recipe, RecipeUsage, Tab } from './lib/types'
 import { api } from './lib/api'
 import { toast, ToastContainer } from './lib/toast'
 import { usePlan } from './hooks/usePlan'
@@ -13,11 +13,13 @@ import { ShopScreen } from './screens/ShopScreen'
 import { CookScreen } from './screens/CookScreen'
 import { StockScreen } from './screens/StockScreen'
 import { RecipesScreen } from './screens/RecipesScreen'
+import { ReconcileSheet } from './components/ReconcileSheet'
 import { daysUntil, EXPIRING_SOON_DAYS } from './lib/ui'
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('swipe')
   const [editor, setEditor] = useState<{ open: boolean; recipe: Recipe | null }>({ open: false, recipe: null })
+  const [reconcile, setReconcile] = useState<{ item: PlanItem; usage: RecipeUsage | null; loading: boolean; busy: boolean } | null>(null)
   const recipesRefetch = useRef<(() => void) | null>(null)
 
   const plan = usePlan()
@@ -70,6 +72,34 @@ export default function App() {
     toast('Moved to Cook 🍳', 'success')
   }
 
+  // Marking a dish cooked opens the stock-reconciliation sheet first.
+  async function startCook(item: PlanItem) {
+    setReconcile({ item, usage: null, loading: true, busy: false })
+    try {
+      const usage = await api.stock.usage(item.recipe.id, item.planned_servings)
+      setReconcile((r) => (r && r.item.id === item.id ? { ...r, usage, loading: false } : r))
+    } catch {
+      // Couldn't compute usage — fall back to just marking it cooked.
+      setReconcile(null)
+      plan.patchItem(item.id, { cooked: true })
+    }
+  }
+
+  async function confirmCook(payload: ConsumePayload) {
+    if (!reconcile) return
+    const { item } = reconcile
+    setReconcile((r) => (r ? { ...r, busy: true } : r))
+    try {
+      if ((payload.consume?.length ?? 0) > 0 || (payload.add?.length ?? 0) > 0) await stock.consume(payload)
+      await plan.patchItem(item.id, { cooked: true })
+      toast('Cooked 🍳 — stock updated', 'success')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Could not finish', 'error')
+    } finally {
+      setReconcile(null)
+    }
+  }
+
   const badges = {
     plan: plan.picks.length,
     shop: grocery.items.filter((i) => !i.checked).length,
@@ -110,7 +140,7 @@ export default function App() {
           />
         )}
         {tab === 'cook' && (
-          <CookScreen cook={plan.cook} onPatch={plan.patchItem} onTap={openEdit} />
+          <CookScreen cook={plan.cook} onPatch={plan.patchItem} onCook={startCook} onTap={openEdit} />
         )}
         {tab === 'stock' && (
           <StockScreen
@@ -118,6 +148,8 @@ export default function App() {
             loading={stock.loading}
             onAdd={stock.add}
             onPatch={stock.patch}
+            onIncrement={stock.increment}
+            onEditIngredient={stock.editIngredient}
             onRemove={stock.remove}
           />
         )}
@@ -140,6 +172,16 @@ export default function App() {
           onClose={() => setEditor({ open: false, recipe: null })}
           onSaved={afterSave}
           onDeleted={() => { afterSave() }}
+        />
+      )}
+
+      {reconcile && (
+        <ReconcileSheet
+          usage={reconcile.usage}
+          loading={reconcile.loading}
+          busy={reconcile.busy}
+          onCancel={() => setReconcile(null)}
+          onConfirm={confirmCook}
         />
       )}
 

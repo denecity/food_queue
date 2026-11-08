@@ -14,6 +14,27 @@ export interface RegisterIngredient {
   default_unit: string | null
   default_location: string
   staple: boolean
+  step: number
+}
+
+/** Natural -/+ increment for an ingredient, inferred from its canonical unit. */
+export function inferStep(unit: string | null | undefined): number {
+  switch ((unit ?? '').trim().toLowerCase()) {
+    case 'g':
+    case 'gram':
+      return 50
+    case 'ml':
+      return 100
+    case 'cl':
+      return 10
+    case 'kg':
+    case 'dl':
+    case 'l':
+    case 'tbsp':
+    case 'tsp':
+    default:
+      return 1
+  }
 }
 
 /** The join key shared across register, ingredients, stock and grocery. */
@@ -49,6 +70,7 @@ export function mapRegister(row: Record<string, unknown>): RegisterIngredient {
     default_unit: (row.default_unit as string) ?? null,
     default_location: (row.default_location as string) ?? 'pantry',
     staple: Number(row.staple ?? 0) === 1,
+    step: row.step != null ? Number(row.step) : inferStep((row.default_unit as string) ?? null),
   }
 }
 
@@ -73,6 +95,7 @@ export interface FindOrCreateInput {
   default_unit?: string | null
   default_location?: string | null
   staple?: boolean
+  step?: number | null
 }
 
 /** Resolve a name to a register entry, creating one (with sensible defaults) if new. */
@@ -86,14 +109,15 @@ export async function findOrCreateIngredient(env: Env, input: FindOrCreateInput)
   const id = uuid()
   const category = input.category ?? 'other'
   const location = input.default_location ?? defaultLocationFor(category)
+  const step = input.step != null ? input.step : inferStep(input.default_unit)
   const ts = now()
   try {
     await env.DB.prepare(
       `INSERT INTO ingredient_register
-        (id, canonical_name, norm_key, aliases, category, default_unit, default_location, staple, created_at, updated_at)
-       VALUES (?, ?, ?, '[]', ?, ?, ?, ?, ?, ?)`
+        (id, canonical_name, norm_key, aliases, category, default_unit, default_location, staple, step, created_at, updated_at)
+       VALUES (?, ?, ?, '[]', ?, ?, ?, ?, ?, ?, ?)`
     )
-      .bind(id, name, normKey(name), category, input.default_unit ?? null, location, input.staple ? 1 : 0, ts, ts)
+      .bind(id, name, normKey(name), category, input.default_unit ?? null, location, input.staple ? 1 : 0, step, ts, ts)
       .run()
   } catch {
     // Likely a concurrent insert of the same norm_key — resolve the winner.

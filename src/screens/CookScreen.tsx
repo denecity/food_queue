@@ -14,10 +14,12 @@ function Thumb({ recipe }: { recipe: Recipe }) {
 export function CookScreen({
   cook,
   onPatch,
+  onCook,
   onTap,
 }: {
   cook: PlanItem[]
   onPatch: (id: string, body: { cooked?: boolean; joker?: boolean; stage?: 'pick' }) => void
+  onCook: (item: PlanItem) => void
   onTap: (recipe: Recipe) => void
 }) {
   const done = cook.filter((c) => c.cooked).length
@@ -43,7 +45,7 @@ export function CookScreen({
               return (
                 <div key={c.id} className={`card p-3 flex items-center gap-3 ${c.cooked ? 'opacity-55' : ''}`}>
                   <button
-                    onClick={() => onPatch(c.id, { cooked: !c.cooked })}
+                    onClick={() => (c.cooked ? onPatch(c.id, { cooked: false }) : onCook(c))}
                     className={`w-7 h-7 rounded-full border-2 shrink-0 flex items-center justify-center ${
                       c.cooked ? 'bg-like border-like text-bg-base' : 'border-line-strong'
                     }`}

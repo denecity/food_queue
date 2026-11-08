@@ -81,12 +81,38 @@ export interface StockItem {
   category: string | null
   quantity: number | null
   unit: string | null
+  canonical_unit: string | null
+  step: number
   location: StockLocation
   expires_on: string | null
   opened_on: string | null
   staple: boolean
   source: string
   added_at: string
+}
+
+export type UsageStatus = 'ok' | 'not_in_stock' | 'no_amount' | 'unit_mismatch'
+
+export interface UsageLine {
+  ingredient_id: string | null
+  ingredient: string
+  unit: string | null
+  step: number
+  needed: number | null
+  on_hand: number
+  after: number
+  status: UsageStatus
+}
+
+export interface RecipeUsage {
+  recipe: { id: string; name: string; servings: number }
+  servings: number
+  lines: UsageLine[]
+}
+
+export interface ConsumePayload {
+  consume?: { ingredient_id: string; amount: number }[]
+  add?: { ingredient: string; quantity?: number | null; unit?: string | null; location?: string | null }[]
 }
 
 export interface ModelOption {

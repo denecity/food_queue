@@ -1,4 +1,4 @@
-import type { GroceryItem, ModelOption, PlanItem, Recipe, RecipeDraft, Stage, StockItem } from './types'
+import type { ConsumePayload, GroceryItem, ModelOption, PlanItem, Recipe, RecipeDraft, RecipeUsage, Stage, StockItem } from './types'
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -124,6 +124,19 @@ export const api = {
     },
     remove(id: string) {
       return request<void>(`/api/stock/${id}`, { method: 'DELETE' })
+    },
+    usage(recipeId: string, servings?: number) {
+      const qs = new URLSearchParams({ recipe_id: recipeId, ...(servings ? { servings: String(servings) } : {}) }).toString()
+      return request<RecipeUsage>(`/api/stock/usage?${qs}`)
+    },
+    consume(body: ConsumePayload) {
+      return request<StockItem[]>('/api/stock/consume', { method: 'POST', body: JSON.stringify(body) })
+    },
+  },
+
+  ingredients: {
+    patch(id: string, body: { default_unit?: string | null; step?: number | null; category?: string | null; default_location?: string | null; staple?: boolean }) {
+      return request<unknown>(`/api/ingredients/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
     },
   },
 

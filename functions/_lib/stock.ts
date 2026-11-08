@@ -7,6 +7,8 @@ export interface StockRow {
   category: string | null
   quantity: number | null
   unit: string | null
+  canonical_unit: string | null
+  step: number
   location: string
   expires_on: string | null
   opened_on: string | null
@@ -24,6 +26,8 @@ export function mapStock(row: Record<string, unknown>): StockRow {
     category: (row.category as string) ?? null,
     quantity: row.quantity != null ? Number(row.quantity) : null,
     unit: (row.unit as string) ?? null,
+    canonical_unit: (row.canonical_unit as string) ?? (row.unit as string) ?? null,
+    step: row.step != null ? Number(row.step) : 1,
     location: (row.location as string) ?? 'pantry',
     expires_on: (row.expires_on as string) ?? null,
     opened_on: (row.opened_on as string) ?? null,
@@ -33,7 +37,8 @@ export function mapStock(row: Record<string, unknown>): StockRow {
   }
 }
 
-const SELECT = `SELECT s.*, reg.canonical_name AS ingredient_name, reg.category AS category, reg.staple AS staple
+const SELECT = `SELECT s.*, reg.canonical_name AS ingredient_name, reg.category AS category, reg.staple AS staple,
+                       reg.default_unit AS canonical_unit, reg.step AS step
                 FROM stock_items s JOIN ingredient_register reg ON reg.id = s.ingredient_id`
 
 /** All stock, soonest-to-expire first (undated last), then by name. */
