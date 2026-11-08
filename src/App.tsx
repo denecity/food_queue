@@ -4,13 +4,16 @@ import { api } from './lib/api'
 import { toast, ToastContainer } from './lib/toast'
 import { usePlan } from './hooks/usePlan'
 import { useGrocery } from './hooks/useGrocery'
+import { useStock } from './hooks/useStock'
 import { BottomNav } from './components/BottomNav'
 import { RecipeEditor } from './components/RecipeEditor'
 import { SwipeScreen } from './screens/SwipeScreen'
 import { PlanScreen } from './screens/PlanScreen'
 import { ShopScreen } from './screens/ShopScreen'
 import { CookScreen } from './screens/CookScreen'
+import { StockScreen } from './screens/StockScreen'
 import { RecipesScreen } from './screens/RecipesScreen'
+import { daysUntil, EXPIRING_SOON_DAYS } from './lib/ui'
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('swipe')
@@ -19,6 +22,7 @@ export default function App() {
 
   const plan = usePlan()
   const grocery = useGrocery()
+  const stock = useStock()
 
   function openNew() {
     setEditor({ open: true, recipe: null })
@@ -70,6 +74,10 @@ export default function App() {
     plan: plan.picks.length,
     shop: grocery.items.filter((i) => !i.checked).length,
     cook: plan.cook.filter((c) => !c.cooked).length,
+    stock: stock.items.filter((i) => {
+      const d = daysUntil(i.expires_on)
+      return d != null && d <= EXPIRING_SOON_DAYS
+    }).length,
   }
 
   return (
@@ -103,6 +111,15 @@ export default function App() {
         )}
         {tab === 'cook' && (
           <CookScreen cook={plan.cook} onPatch={plan.patchItem} onTap={openEdit} />
+        )}
+        {tab === 'stock' && (
+          <StockScreen
+            items={stock.items}
+            loading={stock.loading}
+            onAdd={stock.add}
+            onPatch={stock.patch}
+            onRemove={stock.remove}
+          />
         )}
         {tab === 'recipes' && (
           <RecipesScreen

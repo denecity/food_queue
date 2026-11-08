@@ -72,13 +72,30 @@ export interface GroceryItem {
   created_at: string
 }
 
+export type StockLocation = 'fridge' | 'freezer' | 'pantry' | 'spice'
+
+export interface StockItem {
+  id: string
+  ingredient_id: string
+  ingredient: string
+  category: string | null
+  quantity: number | null
+  unit: string | null
+  location: StockLocation
+  expires_on: string | null
+  opened_on: string | null
+  staple: boolean
+  source: string
+  added_at: string
+}
+
 export interface ModelOption {
   id: string
   label: string
   hint: string
 }
 
-export type Tab = 'swipe' | 'plan' | 'shop' | 'cook' | 'recipes'
+export type Tab = 'swipe' | 'plan' | 'shop' | 'cook' | 'stock' | 'recipes'
 
 export type RecipeSort =
   | 'yumminess_desc' | 'yumminess_asc'

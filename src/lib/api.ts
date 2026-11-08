@@ -1,4 +1,4 @@
-import type { GroceryItem, ModelOption, PlanItem, Recipe, RecipeDraft, Stage } from './types'
+import type { GroceryItem, ModelOption, PlanItem, Recipe, RecipeDraft, Stage, StockItem } from './types'
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -101,6 +101,29 @@ export const api = {
     },
     clearChecked() {
       return request<{ ok: boolean }>('/api/grocery/clear-checked', { method: 'POST' })
+    },
+  },
+
+  stock: {
+    list() {
+      return request<StockItem[]>('/api/stock')
+    },
+    add(body: {
+      ingredient: string
+      quantity?: number | null
+      unit?: string | null
+      location?: string | null
+      expires_on?: string | null
+      store?: string | null
+      price?: number | null
+    }) {
+      return request<StockItem>('/api/stock', { method: 'POST', body: JSON.stringify(body) })
+    },
+    patch(id: string, body: Partial<Pick<StockItem, 'quantity' | 'unit' | 'location' | 'expires_on' | 'opened_on'>>) {
+      return request<StockItem>(`/api/stock/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
+    },
+    remove(id: string) {
+      return request<void>(`/api/stock/${id}`, { method: 'DELETE' })
     },
   },
 

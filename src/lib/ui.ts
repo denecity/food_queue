@@ -52,6 +52,48 @@ export function categoryMeta(c: string | null) {
   return CATEGORY_META[c ?? 'other'] ?? CATEGORY_META.other
 }
 
+// --- Stock locations ---------------------------------------------------------
+
+export const LOCATION_ORDER = ['fridge', 'freezer', 'pantry', 'spice'] as const
+export const LOCATION_META: Record<string, { label: string; emoji: string }> = {
+  fridge: { label: 'Fridge', emoji: '❄️' },
+  freezer: { label: 'Freezer', emoji: '🧊' },
+  pantry: { label: 'Pantry', emoji: '🥫' },
+  spice: { label: 'Spices', emoji: '🧂' },
+}
+export function locationMeta(l: string | null) {
+  return LOCATION_META[l ?? 'pantry'] ?? LOCATION_META.pantry
+}
+
+// --- Expiry ------------------------------------------------------------------
+
+export const EXPIRING_SOON_DAYS = 7
+
+/** Whole days from today until an ISO date (negative = overdue); null if no/invalid date. */
+export function daysUntil(iso: string | null): number | null {
+  if (!iso) return null
+  const d = new Date(iso.length <= 10 ? `${iso}T00:00:00` : iso.replace(' ', 'T'))
+  if (Number.isNaN(d.getTime())) return null
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return Math.round((d.getTime() - today.getTime()) / 86400000)
+}
+
+export type ExpiryTone = 'overdue' | 'soon' | 'ok'
+
+/** Short label + urgency tone for an expiry date, or null if there is no date. */
+export function expiryMeta(iso: string | null): { label: string; tone: ExpiryTone } | null {
+  const d = daysUntil(iso)
+  if (d == null) return null
+  if (d < 0) return { label: d === -1 ? '1d ago' : `${-d}d ago`, tone: 'overdue' }
+  if (d === 0) return { label: 'today', tone: 'soon' }
+  if (d === 1) return { label: 'tomorrow', tone: 'soon' }
+  if (d <= EXPIRING_SOON_DAYS) return { label: `${d}d`, tone: 'soon' }
+  if (d < 30) return { label: `${d}d`, tone: 'ok' }
+  if (d < 365) return { label: `${Math.round(d / 30)}mo`, tone: 'ok' }
+  return { label: `${Math.round(d / 365)}y`, tone: 'ok' }
+}
+
 // --- Images & visuals --------------------------------------------------------
 
 /** URL for a recipe photo (R2), cache-busted by updated_at; null if no photo. */
