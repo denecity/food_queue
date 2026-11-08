@@ -13,6 +13,7 @@ export interface GroceryItem {
   source: 'plan' | 'manual'
   recipe_ids: string[]
   recipes?: RecipeRef[]
+  ingredient_id: string | null
   sort_order: number
   created_at: string
 }
@@ -43,6 +44,7 @@ export function mapGrocery(row: Record<string, unknown>): GroceryItem {
     checked: Number(row.checked ?? 0) === 1,
     source: (row.source as 'plan' | 'manual') ?? 'manual',
     recipe_ids: recipeIds,
+    ingredient_id: (row.ingredient_id as string) ?? null,
     sort_order: Number(row.sort_order ?? 0),
     created_at: row.created_at as string,
   }
