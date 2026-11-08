@@ -3,6 +3,8 @@ import { uuid, now, today } from './http'
 import { mapRecipe, loadIngredients, replaceIngredients } from './recipes'
 import { mapGrocery, withRecipeNames } from '../api/grocery/index'
 import { buildGroceryFromPlan } from './grocery'
+import { findOrCreateIngredient, resolveIngredient, mapRegister } from './register'
+import { storeRecipeImageFromUrl } from './images'
 
 // --- shared shapes -----------------------------------------------------------
 
@@ -15,6 +17,7 @@ export interface McpTool {
 const PERISH = ['high', 'mid', 'low']
 const HEALTH = ['shit', 'bad', 'mid', 'good', 'soul']
 const GROCERY_CATEGORIES = ['produce', 'bakery', 'dairy', 'protein', 'frozen', 'pantry', 'spice', 'asian', 'other']
+const STOCK_LOCATIONS = ['fridge', 'freezer', 'pantry', 'spice']
 
 const ingredientSchema = {
   type: 'array',
@@ -47,6 +50,8 @@ const recipeFields = {
   instructions: { type: ['string', 'null'], description: 'Numbered steps, newline-separated' },
   notes: { type: ['string', 'null'] },
   tags: { type: 'array', items: { type: 'string' }, description: 'e.g. cold weather, hot weather, quick, high effort, korean' },
+  image_url: { type: ['string', 'null'], description: 'A URL to a photo of the dish; the server fetches it and stores it as the recipe image. A bad/unreachable URL is skipped, not fatal.' },
+  image_key: { type: ['string', 'null'], description: 'Set the recipe image to an already-stored R2 key directly (advanced; prefer image_url).' },
 }
 
 // --- tool catalog ------------------------------------------------------------
@@ -180,6 +185,132 @@ export const TOOLS: McpTool[] = [
     description: 'Remove all checked items from the shopping list.',
     inputSchema: { type: 'object', properties: {} },
   },
+
+  // --- Ingredient register ----------------------------------------------------
+  {
+    name: 'list_ingredients',
+    description: 'List entries in the ingredient register — the canonical list every recipe line and stock item points at.',
+    inputSchema: {
+      type: 'object',
+      properties: { search: { type: 'string', description: 'Match canonical name or aliases' } },
+    },
+  },
+  {
+    name: 'find_or_create_ingredient',
+    description: 'Resolve an ingredient name to its register entry, creating one (with sensible defaults) if it is new. Use to get an ingredient_id, or to register an item with specific category/unit/location/staple.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        category: { type: 'string', enum: GROCERY_CATEGORIES },
+        default_unit: { type: ['string', 'null'] },
+        default_location: { type: 'string', enum: STOCK_LOCATIONS },
+        staple: { type: 'boolean', description: 'Always-assumed-present (oil, salt, rice); kept off the shopping list.' },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'merge_ingredients',
+    description: 'Fold one register entry into another (e.g. a duplicate "tomatoes" into "tomato"). Re-points all recipe lines, stock and prices to keep_id and files merge_id\'s name as an alias.',
+    inputSchema: {
+      type: 'object',
+      properties: { keep_id: { type: 'string' }, merge_id: { type: 'string' } },
+      required: ['keep_id', 'merge_id'],
+    },
+  },
+
+  // --- Stock (pantry / fridge) ------------------------------------------------
+  {
+    name: 'list_stock',
+    description: 'List what is on hand, soonest-to-expire first. Optionally filter by location or to items expiring within N days.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        location: { type: 'string', enum: STOCK_LOCATIONS },
+        expiring_within_days: { type: 'integer', description: 'Only items with an expiry date within this many days' },
+      },
+    },
+  },
+  {
+    name: 'add_stock_item',
+    description: 'Add something to stock. Resolves the ingredient in the register (creating it if new). If a store is given, also logs a price observation (price optional) so origins/prices can be compared later. Tip for a "putting shopping away" session: state the store once, then reuse it for each item.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ingredient: { type: 'string', description: 'Ingredient name (resolved to the register)' },
+        quantity: { type: ['number', 'null'] },
+        unit: { type: ['string', 'null'] },
+        location: { type: 'string', enum: STOCK_LOCATIONS, description: 'Defaults from the ingredient register' },
+        expires_on: { type: ['string', 'null'], description: 'Date (YYYY-MM-DD), read off the packaging if visible' },
+        opened_on: { type: ['string', 'null'], description: 'Date (YYYY-MM-DD)' },
+        store: { type: ['string', 'null'], description: 'Where it was bought, e.g. Coop, Migros, Asia-Markt' },
+        price: { type: ['number', 'null'], description: 'CHF paid (for the pack)' },
+        pack_qty: { type: ['number', 'null'], description: 'Pack size, e.g. 400 (enables price-per-unit)' },
+        pack_unit: { type: ['string', 'null'], description: 'Pack size unit, e.g. g' },
+      },
+      required: ['ingredient'],
+    },
+  },
+  {
+    name: 'update_stock_item',
+    description: 'Update a stock item by id — quantity, unit, location, expiry, opened date.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        quantity: { type: ['number', 'null'] },
+        unit: { type: ['string', 'null'] },
+        location: { type: 'string', enum: STOCK_LOCATIONS },
+        expires_on: { type: ['string', 'null'] },
+        opened_on: { type: ['string', 'null'] },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'consume_stock',
+    description: 'Mark stock used. Pass a stock item id, or an ingredient name (uses the soonest-to-expire matching item). With a quantity it reduces by that amount; without one it removes the item entirely.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        ingredient: { type: 'string' },
+        quantity: { type: ['number', 'null'] },
+      },
+    },
+  },
+  {
+    name: 'remove_stock_item',
+    description: 'Delete a stock item by id.',
+    inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
+  },
+
+  // --- Prices / origins -------------------------------------------------------
+  {
+    name: 'add_price_observation',
+    description: 'Log that an ingredient was seen/bought at a store for a price, without touching stock. (add_stock_item does this automatically when given a store.)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ingredient: { type: 'string' },
+        store: { type: 'string' },
+        price: { type: ['number', 'null'], description: 'CHF' },
+        pack_qty: { type: ['number', 'null'] },
+        pack_unit: { type: ['string', 'null'] },
+      },
+      required: ['ingredient', 'store'],
+    },
+  },
+  {
+    name: 'get_price_history',
+    description: 'Price history for an ingredient across stores: every observation plus a per-store summary (last price, cheapest) to answer "where is this cheapest?".',
+    inputSchema: {
+      type: 'object',
+      properties: { ingredient: { type: 'string' } },
+      required: ['ingredient'],
+    },
+  },
 ]
 
 // --- helpers -----------------------------------------------------------------
@@ -224,6 +355,50 @@ async function fullRecipe(env: Env, id: string) {
   const recipe = mapRecipe(row)
   recipe.ingredients = await loadIngredients(env, id)
   return recipe
+}
+
+/** Set a recipe's photo from create/update args: image_url (fetched into R2) or a direct image_key. */
+async function applyRecipeImage(env: Env, recipeId: string, args: Record<string, any>): Promise<void> {
+  if (args.image_url) {
+    // Non-fatal: a bad URL shouldn't lose the recipe the user just created/edited.
+    try {
+      await storeRecipeImageFromUrl(env, recipeId, String(args.image_url))
+      return
+    } catch {
+      /* leave image unset; the returned recipe will show image_key null */
+    }
+  }
+  if (args.image_key !== undefined) {
+    await env.DB.prepare('UPDATE recipes SET image_key = ?, updated_at = ? WHERE id = ?')
+      .bind(args.image_key ?? null, now(), recipeId)
+      .run()
+  }
+}
+
+function mapStock(row: Record<string, unknown>) {
+  return {
+    id: row.id as string,
+    ingredient_id: row.ingredient_id as string,
+    ingredient: (row.ingredient_name as string) ?? undefined,
+    category: (row.category as string) ?? undefined,
+    quantity: row.quantity != null ? Number(row.quantity) : null,
+    unit: (row.unit as string) ?? null,
+    location: (row.location as string) ?? 'pantry',
+    expires_on: (row.expires_on as string) ?? null,
+    opened_on: (row.opened_on as string) ?? null,
+    source: (row.source as string) ?? 'chat',
+    added_at: row.added_at as string,
+  }
+}
+
+/** Insert a price observation; price/pack may be null (still records the origin). */
+async function logPrice(env: Env, ingredientId: string, args: Record<string, any>, fallbackUnit: string | null): Promise<void> {
+  await env.DB.prepare(
+    `INSERT INTO price_observations (id, ingredient_id, store, price, pack_qty, pack_unit, observed_at, source)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'chat')`
+  )
+    .bind(uuid(), ingredientId, String(args.store), args.price ?? null, args.pack_qty ?? null, args.pack_unit ?? fallbackUnit ?? null, now())
+    .run()
 }
 
 class ToolError extends Error {}
@@ -289,6 +464,7 @@ export async function callTool(env: Env, name: string, args: Record<string, any>
         ts
       ).run()
       if (Array.isArray(args.ingredients)) await replaceIngredients(env, id, args.ingredients)
+      await applyRecipeImage(env, id, args)
       return fullRecipe(env, id)
     }
 
@@ -309,6 +485,7 @@ export async function callTool(env: Env, name: string, args: Record<string, any>
       sets.push('updated_at = ?'); binds.push(now()); binds.push(id)
       if (sets.length > 1) await env.DB.prepare(`UPDATE recipes SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run()
       if (Array.isArray(args.ingredients)) await replaceIngredients(env, id, args.ingredients)
+      await applyRecipeImage(env, id, args)
       return fullRecipe(env, id)
     }
 
@@ -452,6 +629,174 @@ export async function callTool(env: Env, name: string, args: Record<string, any>
     case 'clear_checked_grocery': {
       await env.DB.prepare('DELETE FROM grocery_items WHERE checked = 1').run()
       return { ok: true }
+    }
+
+    // --- Ingredient register --------------------------------------------------
+
+    case 'list_ingredients': {
+      let sql = 'SELECT * FROM ingredient_register'
+      const binds: unknown[] = []
+      if (args.search) {
+        sql += ' WHERE LOWER(canonical_name) LIKE ? OR LOWER(aliases) LIKE ?'
+        const q = `%${String(args.search).toLowerCase()}%`
+        binds.push(q, q)
+      }
+      sql += ' ORDER BY canonical_name ASC'
+      const { results } = await env.DB.prepare(sql).bind(...binds).all<Record<string, unknown>>()
+      return (results ?? []).map(mapRegister)
+    }
+
+    case 'find_or_create_ingredient': {
+      const reg = await findOrCreateIngredient(env, {
+        name: String(args.name ?? ''),
+        category: args.category ?? null,
+        default_unit: args.default_unit ?? null,
+        default_location: args.default_location ?? null,
+        staple: args.staple,
+      })
+      return reg
+    }
+
+    case 'merge_ingredients': {
+      const keepRow = await env.DB.prepare('SELECT * FROM ingredient_register WHERE id = ?').bind(String(args.keep_id)).first<Record<string, unknown>>()
+      const mergeRow = await env.DB.prepare('SELECT * FROM ingredient_register WHERE id = ?').bind(String(args.merge_id)).first<Record<string, unknown>>()
+      if (!keepRow || !mergeRow) throw new ToolError('keep_id and merge_id must both exist')
+      if (args.keep_id === args.merge_id) throw new ToolError('keep_id and merge_id are the same')
+      const keep = mapRegister(keepRow)
+      const merge = mapRegister(mergeRow)
+      const aliases = [...new Set([...keep.aliases, merge.norm_key, ...merge.aliases].filter((a) => a && a !== keep.norm_key))]
+      await env.DB.batch([
+        env.DB.prepare('UPDATE ingredients SET ingredient_id = ? WHERE ingredient_id = ?').bind(keep.id, merge.id),
+        env.DB.prepare('UPDATE stock_items SET ingredient_id = ? WHERE ingredient_id = ?').bind(keep.id, merge.id),
+        env.DB.prepare('UPDATE price_observations SET ingredient_id = ? WHERE ingredient_id = ?').bind(keep.id, merge.id),
+        env.DB.prepare('UPDATE grocery_items SET ingredient_id = ? WHERE ingredient_id = ?').bind(keep.id, merge.id),
+        env.DB.prepare('UPDATE ingredient_register SET aliases = ?, updated_at = ? WHERE id = ?').bind(JSON.stringify(aliases), now(), keep.id),
+        env.DB.prepare('DELETE FROM ingredient_register WHERE id = ?').bind(merge.id),
+      ])
+      return { ok: true, kept: keep.id, merged_aliases: aliases }
+    }
+
+    // --- Stock ----------------------------------------------------------------
+
+    case 'list_stock': {
+      const where: string[] = []
+      const binds: unknown[] = []
+      if (args.location) { where.push('s.location = ?'); binds.push(String(args.location)) }
+      if (args.expiring_within_days != null) {
+        where.push("s.expires_on IS NOT NULL AND s.expires_on <= date('now', ?)")
+        binds.push(`+${Math.max(0, Math.round(Number(args.expiring_within_days)) || 0)} days`)
+      }
+      const sql = `SELECT s.*, reg.canonical_name AS ingredient_name, reg.category AS category
+                   FROM stock_items s JOIN ingredient_register reg ON reg.id = s.ingredient_id
+                   ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+                   ORDER BY (s.expires_on IS NULL) ASC, s.expires_on ASC, reg.canonical_name ASC`
+      const { results } = await env.DB.prepare(sql).bind(...binds).all<Record<string, unknown>>()
+      return (results ?? []).map(mapStock)
+    }
+
+    case 'add_stock_item': {
+      const reg = await findOrCreateIngredient(env, {
+        name: String(args.ingredient ?? args.name ?? ''),
+        category: args.category ?? null,
+        default_unit: args.unit ?? null,
+        default_location: args.location ?? null,
+      })
+      const id = uuid()
+      const unit = args.unit ?? reg.default_unit ?? null
+      const location = args.location ?? reg.default_location
+      await env.DB.prepare(
+        `INSERT INTO stock_items (id, ingredient_id, quantity, unit, location, expires_on, opened_on, source, added_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(id, reg.id, args.quantity ?? null, unit, location, args.expires_on ?? null, args.opened_on ?? null, args.source ?? 'chat', now(), now()).run()
+      let logged: { store: string; price: number | null } | null = null
+      if (args.store) {
+        await logPrice(env, reg.id, args, unit)
+        logged = { store: String(args.store), price: args.price ?? null }
+      }
+      const row = await env.DB.prepare(
+        `SELECT s.*, reg.canonical_name AS ingredient_name, reg.category AS category
+         FROM stock_items s JOIN ingredient_register reg ON reg.id = s.ingredient_id WHERE s.id = ?`
+      ).bind(id).first<Record<string, unknown>>()
+      return { ...mapStock(row!), logged_price: logged }
+    }
+
+    case 'update_stock_item': {
+      const id = String(args.id)
+      const existing = await env.DB.prepare('SELECT id FROM stock_items WHERE id = ?').bind(id).first()
+      if (!existing) throw new ToolError('Stock item not found')
+      const sets: string[] = []
+      const binds: unknown[] = []
+      for (const key of ['quantity', 'unit', 'location', 'expires_on', 'opened_on'] as const) {
+        if (key in args) { sets.push(`${key} = ?`); binds.push(args[key] ?? null) }
+      }
+      if (sets.length === 0) return { ok: true }
+      sets.push('updated_at = ?'); binds.push(now()); binds.push(id)
+      await env.DB.prepare(`UPDATE stock_items SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run()
+      return { ok: true }
+    }
+
+    case 'consume_stock': {
+      let row: Record<string, unknown> | null = null
+      if (args.id) {
+        row = await env.DB.prepare('SELECT * FROM stock_items WHERE id = ?').bind(String(args.id)).first<Record<string, unknown>>()
+      } else if (args.ingredient) {
+        const reg = await resolveIngredient(env, String(args.ingredient))
+        if (!reg) throw new ToolError(`"${args.ingredient}" is not in stock`)
+        row = await env.DB.prepare(
+          "SELECT * FROM stock_items WHERE ingredient_id = ? ORDER BY (expires_on IS NULL) ASC, expires_on ASC LIMIT 1"
+        ).bind(reg.id).first<Record<string, unknown>>()
+      } else {
+        throw new ToolError('Pass a stock item id or an ingredient name')
+      }
+      if (!row) throw new ToolError('No matching stock item')
+      const id = row.id as string
+      const have = row.quantity != null ? Number(row.quantity) : null
+      const take = args.quantity != null ? Number(args.quantity) : null
+      if (take != null && have != null && take < have) {
+        await env.DB.prepare('UPDATE stock_items SET quantity = ?, updated_at = ? WHERE id = ?')
+          .bind(Math.round((have - take) * 100) / 100, now(), id).run()
+        return { ok: true, id, remaining: Math.round((have - take) * 100) / 100 }
+      }
+      await env.DB.prepare('DELETE FROM stock_items WHERE id = ?').bind(id).run()
+      return { ok: true, id, removed: true }
+    }
+
+    case 'remove_stock_item': {
+      await env.DB.prepare('DELETE FROM stock_items WHERE id = ?').bind(String(args.id)).run()
+      return { ok: true }
+    }
+
+    // --- Prices / origins -----------------------------------------------------
+
+    case 'add_price_observation': {
+      const reg = await findOrCreateIngredient(env, { name: String(args.ingredient ?? '') })
+      await logPrice(env, reg.id, args, null)
+      return { ok: true, ingredient: reg.canonical_name, store: String(args.store), price: args.price ?? null }
+    }
+
+    case 'get_price_history': {
+      const reg = await resolveIngredient(env, String(args.ingredient))
+      if (!reg) throw new ToolError(`"${args.ingredient}" is not in the register`)
+      const { results } = await env.DB.prepare(
+        'SELECT store, price, pack_qty, pack_unit, observed_at FROM price_observations WHERE ingredient_id = ? ORDER BY observed_at DESC'
+      ).bind(reg.id).all<Record<string, unknown>>()
+      const observations = (results ?? []).map((r) => ({
+        store: r.store as string,
+        price: r.price != null ? Number(r.price) : null,
+        pack_qty: r.pack_qty != null ? Number(r.pack_qty) : null,
+        pack_unit: (r.pack_unit as string) ?? null,
+        observed_at: r.observed_at as string,
+      }))
+      // Per-store summary: latest and cheapest price seen.
+      const byStore = new Map<string, { store: string; last_price: number | null; cheapest: number | null; count: number }>()
+      for (const o of observations) {
+        const s = byStore.get(o.store) ?? { store: o.store, last_price: null, cheapest: null, count: 0 }
+        if (s.last_price == null && o.price != null) s.last_price = o.price // observations are newest-first
+        if (o.price != null) s.cheapest = s.cheapest == null ? o.price : Math.min(s.cheapest, o.price)
+        s.count++
+        byStore.set(o.store, s)
+      }
+      return { ingredient: reg.canonical_name, observations, by_store: [...byStore.values()] }
     }
 
     default:

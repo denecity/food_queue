@@ -1,4 +1,5 @@
 import type { Env, Recipe, Ingredient } from './types'
+import { findOrCreateIngredient } from './register'
 
 /** Map a raw D1 recipes row into a typed Recipe (parses JSON + booleans). */
 export function mapRecipe(row: Record<string, unknown>): Recipe {
@@ -61,33 +62,50 @@ export async function loadIngredients(env: Env, recipeId: string): Promise<Ingre
   return (results ?? []).map(mapIngredient)
 }
 
-/** Replace all ingredients for a recipe with the given list. */
+/**
+ * Replace all ingredients for a recipe with the given list. Each line is resolved
+ * to an ingredient_register entry (created on the fly if new) so every recipe line
+ * carries an ingredient_id — the register is maintained as a side effect of saving.
+ */
 export async function replaceIngredients(
   env: Env,
   recipeId: string,
   ingredients: Array<Partial<Ingredient>>
 ): Promise<void> {
+  // Resolve to register entries first (async), then write the lines in one batch.
+  const resolved: Array<{ ing: Partial<Ingredient>; registerId: string; category: string; order: number }> = []
+  for (let i = 0; i < ingredients.length; i++) {
+    const ing = ingredients[i]
+    if (!ing?.name || !String(ing.name).trim()) continue
+    const reg = await findOrCreateIngredient(env, {
+      name: String(ing.name).trim(),
+      category: ing.category ?? null,
+      default_unit: ing.unit ?? null,
+    })
+    resolved.push({ ing, registerId: reg.id, category: ing.category ?? reg.category, order: ing.sort_order ?? i })
+  }
+
   const stmts: D1PreparedStatement[] = [
     env.DB.prepare('DELETE FROM ingredients WHERE recipe_id = ?').bind(recipeId),
   ]
-  ingredients.forEach((ing, i) => {
-    if (!ing?.name || !String(ing.name).trim()) return
+  for (const { ing, registerId, category, order } of resolved) {
     stmts.push(
       env.DB.prepare(
-        `INSERT INTO ingredients (id, recipe_id, name, quantity, unit, category, note, sort_order)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO ingredients (id, recipe_id, name, quantity, unit, category, note, sort_order, ingredient_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         crypto.randomUUID(),
         recipeId,
         String(ing.name).trim(),
         ing.quantity ?? null,
         ing.unit ?? null,
-        ing.category ?? null,
+        category,
         ing.note ?? null,
-        ing.sort_order ?? i
+        order,
+        registerId
       )
     )
-  })
+  }
   await env.DB.batch(stmts)
 }
 
