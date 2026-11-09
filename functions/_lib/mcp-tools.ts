@@ -313,6 +313,18 @@ export const TOOLS: McpTool[] = [
       required: ['ingredient'],
     },
   },
+
+  // --- Maintenance --------------------------------------------------------------
+  {
+    name: 'dump_database',
+    description: 'Comprehensive read-only dump of the whole FoodQueue database: every table with its schema, row count and all rows, unprocessed. The output is large, so for ordinary questions use the list_* tools; pass `tables` to limit the dump.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        tables: { type: 'array', items: { type: 'string' }, description: 'Only dump these tables (default: all)' },
+      },
+    },
+  },
 ]
 
 // --- helpers -----------------------------------------------------------------
@@ -802,6 +814,26 @@ export async function callTool(env: Env, name: string, args: Record<string, any>
         byStore.set(o.store, s)
       }
       return { ingredient: reg.canonical_name, observations, by_store: [...byStore.values()] }
+    }
+
+    // --- Maintenance ----------------------------------------------------------
+
+    case 'dump_database': {
+      // Tables come from the schema, so new migrations are included automatically.
+      const { results } = await env.DB.prepare(
+        "SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name NOT GLOB 'sqlite_*' AND name NOT GLOB '_cf_*' ORDER BY name"
+      ).all<{ name: string; sql: string }>()
+      const all = results ?? []
+      const wanted: string[] = Array.isArray(args.tables) ? args.tables.map(String) : []
+      const unknown = wanted.filter((t) => !all.some((a) => a.name === t))
+      if (unknown.length) throw new ToolError(`Unknown tables: ${unknown.join(', ')}. Available: ${all.map((a) => a.name).join(', ')}`)
+      const selected = wanted.length ? all.filter((a) => wanted.includes(a.name)) : all
+      const rows = await env.DB.batch(selected.map((t) => env.DB.prepare(`SELECT * FROM "${t.name}"`)))
+      const tables: Record<string, { schema: string; row_count: number; rows: unknown[] }> = {}
+      selected.forEach((t, i) => {
+        tables[t.name] = { schema: t.sql, row_count: rows[i].results.length, rows: rows[i].results }
+      })
+      return { dumped_at: now(), tables }
     }
 
     default:
