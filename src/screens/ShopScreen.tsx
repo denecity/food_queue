@@ -102,7 +102,17 @@ export function ShopScreen({
                   {g.items.map((i) => {
                     const partial = !i.have && i.in_stock != null
                     return (
-                    <div key={i.id} className={`flex items-center gap-3 py-2 px-2 rounded-lg border active:bg-bg-hover ${i.have ? 'border-red-500/70' : partial ? 'border-dotted border-red-500/70' : 'border-transparent'}`}>
+                    <div key={i.id} className={`relative flex items-center gap-3 py-2 px-2 rounded-lg border active:bg-bg-hover ${i.have ? 'border-red-500/70' : 'border-transparent'}`}>
+                      {/* CSS dashes can't be sized, so the partial outline is drawn over the border. */}
+                      {partial && (
+                        <svg
+                          aria-hidden
+                          className="absolute pointer-events-none overflow-visible"
+                          style={{ inset: -0.5, width: 'calc(100% + 1px)', height: 'calc(100% + 1px)' }}
+                        >
+                          <rect width="100%" height="100%" rx="7.5" fill="none" className="stroke-red-500/70" strokeDasharray="6 4" />
+                        </svg>
+                      )}
                       <button
                         onClick={() => onToggle(i.id, !i.checked)}
                         className={`w-6 h-6 rounded-md border-2 shrink-0 flex items-center justify-center text-sm ${
