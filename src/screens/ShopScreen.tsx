@@ -23,9 +23,10 @@ export function ShopScreen({
 }) {
   const [text, setText] = useState('')
 
-  // Live multi-device sync while shopping: poll every 4s + on focus (only while this tab is open).
+  // Live multi-device sync while shopping: poll + on focus (only while this tab is open).
+  // 20s, not 4s — this is a personal list, and a tighter interval just burns D1 reads.
   useEffect(() => {
-    const id = setInterval(onSync, 4000)
+    const id = setInterval(onSync, 20000)
     const onVis = () => onSync()
     document.addEventListener('visibilitychange', onVis)
     window.addEventListener('focus', onVis)
