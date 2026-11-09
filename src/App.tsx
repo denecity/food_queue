@@ -113,7 +113,7 @@ export default function App() {
 
   const badges = {
     plan: plan.picks.length,
-    shop: grocery.items.filter((i) => !i.checked).length,
+    shop: grocery.items.filter((i) => !i.checked && !i.have).length,
     cook: plan.cook.filter((c) => !c.cooked).length,
     stock: stock.items.filter((i) => {
       const d = daysUntil(i.expires_on)
