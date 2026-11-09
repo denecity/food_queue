@@ -100,19 +100,21 @@ export async function buildGroceryFromPlan(env: Env): Promise<GroceryItem[]> {
   ]
   let order = 0
   for (const a of agg.values()) {
-    if (a.staple) continue // assumed always on hand
-
+    // `have` items (staples, or fully covered by stock) are still listed — marked,
+    // in a separate "already have" section — rather than dropped from the list.
+    let have = a.staple
     let qty = a.numeric ? Math.round((a.quantity ?? 0) * 100) / 100 : null
-    if (a.ingredientId && qty != null) {
+    if (!have && a.ingredientId && qty != null) {
       const onHand = stockByIngredient.get(a.ingredientId)
       if (onHand) {
-        let have = 0
+        let stocked = 0
         for (const s of onHand) {
-          if (normUnit(s.unit) === normUnit(a.unit) && Number.isFinite(s.qty)) have += s.qty
+          if (normUnit(s.unit) === normUnit(a.unit) && Number.isFinite(s.qty)) stocked += s.qty
         }
-        if (have > 0) {
-          qty = Math.max(0, Math.round((qty - have) * 100) / 100)
-          if (qty === 0) continue // fully covered by stock
+        if (stocked > 0) {
+          const remaining = Math.round((qty - stocked) * 100) / 100
+          if (remaining <= 0) have = true // fully covered — keep full qty for display, mark as have
+          else qty = remaining
         }
       }
     }
@@ -120,8 +122,8 @@ export async function buildGroceryFromPlan(env: Env): Promise<GroceryItem[]> {
     const k = keyOf(a.name, a.unit)
     stmts.push(
       env.DB.prepare(
-        `INSERT INTO grocery_items (id, name, quantity, unit, category, checked, source, recipe_ids, sort_order, created_at, ingredient_id)
-         VALUES (?, ?, ?, ?, ?, ?, 'plan', ?, ?, ?, ?)`
+        `INSERT INTO grocery_items (id, name, quantity, unit, category, checked, source, recipe_ids, sort_order, created_at, ingredient_id, have)
+         VALUES (?, ?, ?, ?, ?, ?, 'plan', ?, ?, ?, ?, ?)`
       ).bind(
         crypto.randomUUID(),
         a.name,
@@ -132,7 +134,8 @@ export async function buildGroceryFromPlan(env: Env): Promise<GroceryItem[]> {
         JSON.stringify([...a.recipeIds]),
         order++,
         now(),
-        a.ingredientId
+        a.ingredientId,
+        have ? 1 : 0
       )
     )
   }

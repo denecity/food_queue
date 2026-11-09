@@ -65,6 +65,7 @@ export interface GroceryItem {
   unit: string | null
   category: string | null
   checked: boolean
+  have: boolean
   source: 'plan' | 'manual'
   recipe_ids: string[]
   recipes?: { id: string; name: string; emoji: string }[]
@@ -89,6 +90,20 @@ export interface StockItem {
   staple: boolean
   source: string
   added_at: string
+}
+
+export interface RegisterIngredient {
+  id: string
+  canonical_name: string
+  norm_key: string
+  aliases: string[]
+  category: string
+  default_unit: string | null
+  default_location: string
+  staple: boolean
+  step: number
+  recipe_count: number
+  stock_count: number
 }
 
 export type UsageStatus = 'ok' | 'not_in_stock' | 'no_amount' | 'unit_mismatch'
@@ -121,7 +136,7 @@ export interface ModelOption {
   hint: string
 }
 
-export type Tab = 'swipe' | 'plan' | 'shop' | 'cook' | 'stock' | 'recipes'
+export type Tab = 'swipe' | 'plan' | 'shop' | 'cook' | 'stock' | 'items' | 'recipes'
 
 export type RecipeSort =
   | 'yumminess_desc' | 'yumminess_asc'

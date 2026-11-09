@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { StockItem, StockLocation } from '../lib/types'
 import {
   LOCATION_ORDER,
@@ -9,6 +9,71 @@ import {
   formatQty,
   type ExpiryTone,
 } from '../lib/ui'
+import { Sheet } from '../components/Sheet'
+
+type AddStockBody = { ingredient: string; quantity?: number | null; unit?: string | null; location?: string | null; expires_on?: string | null }
+
+function AddStockDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (b: AddStockBody) => void }) {
+  const [name, setName] = useState('')
+  const [qty, setQty] = useState('')
+  const [unit, setUnit] = useState<'pcs' | 'g' | 'ml'>('pcs')
+  const [location, setLocation] = useState<StockLocation>('pantry')
+  const [expires, setExpires] = useState('')
+
+  function submit() {
+    const t = name.trim()
+    if (!t) return
+    onAdd({ ingredient: t, quantity: qty.trim() === '' ? null : Number(qty), unit, location, expires_on: expires || null })
+    onClose()
+  }
+
+  return (
+    <Sheet
+      title="Add to stock"
+      onClose={onClose}
+      footer={
+        <>
+          <button onClick={onClose} className="btn-line flex-1">Cancel</button>
+          <button onClick={submit} className="btn-ghost flex-1" disabled={!name.trim()}>Add</button>
+        </>
+      }
+    >
+      <label className="block text-xs text-ink-dim space-y-1">
+        Ingredient
+        <input className="field" autoFocus placeholder="e.g. Tomatoes" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') submit() }} />
+      </label>
+      <div className="flex gap-2">
+        <label className="flex-1 text-xs text-ink-dim space-y-1">
+          Quantity
+          <input type="number" inputMode="decimal" className="field" value={qty} onChange={(e) => setQty(e.target.value)} />
+        </label>
+        <div className="text-xs text-ink-dim space-y-1">
+          Unit
+          <div className="grid grid-cols-3 gap-1">
+            {(['pcs', 'g', 'ml'] as const).map((u) => (
+              <button key={u} onClick={() => setUnit(u)} className={`px-3 py-2 rounded-md text-xs font-medium border ${unit === u ? 'bg-accent/15 border-accent text-accent' : 'border-line text-ink-dim'}`}>{u}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="text-xs text-ink-dim space-y-1">
+        Location
+        <div className="grid grid-cols-4 gap-1.5">
+          {LOCATION_ORDER.map((l) => {
+            const m = locationMeta(l)
+            return (
+              <button key={l} onClick={() => setLocation(l as StockLocation)} className={`py-1.5 rounded-md text-[11px] font-medium border ${location === l ? 'bg-accent/15 border-accent text-accent' : 'border-line text-ink-dim'}`}>{m.emoji} {m.label}</button>
+            )
+          })}
+        </div>
+      </div>
+      <label className="block text-xs text-ink-dim space-y-1">
+        Expires (optional)
+        <input type="date" className="field" value={expires} onChange={(e) => setExpires(e.target.value)} />
+      </label>
+    </Sheet>
+  )
+}
 
 const TONE_CLASS: Record<ExpiryTone, string> = {
   overdue: 'bg-red-500/15 text-red-400',
@@ -171,16 +236,22 @@ export function StockScreen({
 }: {
   items: StockItem[]
   loading: boolean
-  onAdd: (body: { ingredient: string }) => void
+  onAdd: (body: AddStockBody) => void
   onPatch: (id: string, body: Partial<Pick<StockItem, 'quantity' | 'expires_on' | 'location'>>) => void
   onIncrement: (item: StockItem, dir: 1 | -1) => void
   onEditIngredient: (ingredientId: string, body: { default_unit?: string | null; step?: number | null }) => void
   onRemove: (id: string) => void
 }) {
-  const [text, setText] = useState('')
+  const [q, setQ] = useState('')
+  const [adding, setAdding] = useState(false)
   const [openId, setOpenId] = useState<string | null>(null)
 
-  const soon = items
+  const filtered = useMemo(() => {
+    const t = q.trim().toLowerCase()
+    return t ? items.filter((i) => i.ingredient.toLowerCase().includes(t)) : items
+  }, [items, q])
+
+  const soon = filtered
     .filter((i) => {
       const d = daysUntil(i.expires_on)
       return d != null && d <= EXPIRING_SOON_DAYS
@@ -190,17 +261,10 @@ export function StockScreen({
 
   const groups = LOCATION_ORDER.map((loc) => ({
     loc,
-    items: items
+    items: filtered
       .filter((i) => (i.location ?? 'pantry') === loc && !soonIds.has(i.id))
       .sort((a, b) => a.ingredient.localeCompare(b.ingredient)),
   })).filter((g) => g.items.length > 0)
-
-  function submit() {
-    const t = text.trim()
-    if (!t) return
-    onAdd({ ingredient: t })
-    setText('')
-  }
 
   const toggle = (id: string) => setOpenId((cur) => (cur === id ? null : id))
 
@@ -218,19 +282,15 @@ export function StockScreen({
     <div className="px-4 pt-4 space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-ink">Stock</h1>
-        <span className="text-sm text-ink-dim">{items.length} items</span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-ink-dim">{items.length} items</span>
+          <button onClick={() => setAdding(true)} className="w-9 h-9 rounded-full bg-accent text-white text-xl leading-none flex items-center justify-center active:scale-95" aria-label="Add to stock">+</button>
+        </div>
       </div>
 
-      <div className="flex gap-2">
-        <input
-          className="field"
-          placeholder="Add to the fridge/pantry…"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
-        />
-        <button className="btn-ghost shrink-0" onClick={submit}>Add</button>
-      </div>
+      <input className="field" placeholder="Search stock…" value={q} onChange={(e) => setQ(e.target.value)} />
+
+      {adding && <AddStockDialog onClose={() => setAdding(false)} onAdd={onAdd} />}
 
       {loading ? (
         <div className="text-center py-16 text-ink-dim">Loading…</div>

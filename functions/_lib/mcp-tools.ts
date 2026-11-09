@@ -5,6 +5,7 @@ import { mapGrocery, withRecipeNames } from '../api/grocery/index'
 import { buildGroceryFromPlan } from './grocery'
 import { findOrCreateIngredient, resolveIngredient, mapRegister } from './register'
 import { storeRecipeImageFromUrl } from './images'
+import { toCanonicalQty } from './units'
 
 // --- shared shapes -----------------------------------------------------------
 
@@ -189,7 +190,7 @@ export const TOOLS: McpTool[] = [
   // --- Ingredient register ----------------------------------------------------
   {
     name: 'list_ingredients',
-    description: 'List entries in the ingredient register — the canonical list every recipe line and stock item points at.',
+    description: 'List entries in the ingredient register — the canonical list every recipe line and stock item points at. Each has a canonical unit (always g, ml, or pcs). CALL THIS FIRST when stocking several items, so you reuse existing ingredients (match by name/alias) instead of creating near-duplicates, and use each one\'s existing unit.',
     inputSchema: {
       type: 'object',
       properties: { search: { type: 'string', description: 'Match canonical name or aliases' } },
@@ -197,7 +198,7 @@ export const TOOLS: McpTool[] = [
   },
   {
     name: 'find_or_create_ingredient',
-    description: 'Resolve an ingredient name to its register entry, creating one (with sensible defaults) if it is new. Use to get an ingredient_id, or to register an item with specific category/unit/location/staple.',
+    description: 'Resolve an ingredient name to its register entry, creating one (with sensible defaults) if new. Prefer reusing an existing entry (see list_ingredients) over creating a near-duplicate. New ingredients use a base unit only — g, ml, or pcs (count things as pcs); the server coerces anything else.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -234,7 +235,7 @@ export const TOOLS: McpTool[] = [
   },
   {
     name: 'add_stock_item',
-    description: 'Add something to stock. Resolves the ingredient in the register (creating it if new). If a store is given, also logs a price observation (price optional) so origins/prices can be compared later. Tip for a "putting shopping away" session: state the store once, then reuse it for each item.',
+    description: 'Add something to stock. Resolves the ingredient in the register (reuse an existing entry where possible — call list_ingredients first for a multi-item session). Quantities are in the ingredient\'s canonical unit — g, ml, or pcs (count items as pcs: 22 cloves of garlic → quantity 22, unit "pcs"); the server stores in the canonical unit and converts when it can. If a store is given, also logs a price observation (price optional) so origins/prices can be compared later — state the store once per session and reuse it for each item.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -702,12 +703,14 @@ export async function callTool(env: Env, name: string, args: Record<string, any>
         default_location: args.location ?? null,
       })
       const id = uuid()
-      const unit = args.unit ?? reg.default_unit ?? null
+      // Always store in the ingredient's canonical unit (g/ml/pcs), converting if compatible.
+      const unit = reg.default_unit ?? null
+      const quantity = toCanonicalQty(args.quantity, args.unit, unit)
       const location = args.location ?? reg.default_location
       await env.DB.prepare(
         `INSERT INTO stock_items (id, ingredient_id, quantity, unit, location, expires_on, opened_on, source, added_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ).bind(id, reg.id, args.quantity ?? null, unit, location, args.expires_on ?? null, args.opened_on ?? null, args.source ?? 'chat', now(), now()).run()
+      ).bind(id, reg.id, quantity, unit, location, args.expires_on ?? null, args.opened_on ?? null, args.source ?? 'chat', now(), now()).run()
       let logged: { store: string; price: number | null } | null = null
       if (args.store) {
         await logPrice(env, reg.id, args, unit)

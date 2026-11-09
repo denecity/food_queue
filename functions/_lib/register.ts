@@ -1,5 +1,6 @@
 import type { Env } from './types'
 import { uuid, now } from './http'
+import { baseUnit } from './units'
 
 // The ingredient register is the hub every recipe line and stock item points at.
 // Names are still spoken/typed freely; this module resolves a name to a canonical
@@ -109,7 +110,9 @@ export async function findOrCreateIngredient(env: Env, input: FindOrCreateInput)
   const id = uuid()
   const category = input.category ?? 'other'
   const location = input.default_location ?? defaultLocationFor(category)
-  const step = input.step != null ? input.step : inferStep(input.default_unit)
+  // Keep the register on the g/ml/pcs system: collapse any supplied unit to a base unit.
+  const unit = baseUnit(input.default_unit)
+  const step = input.step != null ? input.step : inferStep(unit)
   const ts = now()
   try {
     await env.DB.prepare(
@@ -117,7 +120,7 @@ export async function findOrCreateIngredient(env: Env, input: FindOrCreateInput)
         (id, canonical_name, norm_key, aliases, category, default_unit, default_location, staple, step, created_at, updated_at)
        VALUES (?, ?, ?, '[]', ?, ?, ?, ?, ?, ?, ?)`
     )
-      .bind(id, name, normKey(name), category, input.default_unit ?? null, location, input.staple ? 1 : 0, step, ts, ts)
+      .bind(id, name, normKey(name), category, unit, location, input.staple ? 1 : 0, step, ts, ts)
       .run()
   } catch {
     // Likely a concurrent insert of the same norm_key — resolve the winner.

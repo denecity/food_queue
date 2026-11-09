@@ -2,6 +2,7 @@ import type { Env } from '../../_lib/types'
 import { json, readJson, badRequest, uuid, now } from '../../_lib/http'
 import { findOrCreateIngredient } from '../../_lib/register'
 import { listStock, getStock } from '../../_lib/stock'
+import { toCanonicalQty } from '../../_lib/units'
 
 // GET /api/stock — everything on hand, soonest-to-expire first.
 export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
@@ -22,12 +23,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     default_location: body.location ?? null,
   })
   const id = uuid()
-  const unit = body.unit ?? reg.default_unit ?? null
+  // Store in the ingredient's canonical unit (convert the quantity if compatible).
+  const unit = reg.default_unit ?? null
+  const quantity = toCanonicalQty(body.quantity, body.unit, unit)
   const location = body.location ?? reg.default_location
   await env.DB.prepare(
     `INSERT INTO stock_items (id, ingredient_id, quantity, unit, location, expires_on, opened_on, source, added_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, 'manual', ?, ?)`
-  ).bind(id, reg.id, body.quantity ?? null, unit, location, body.expires_on ?? null, body.opened_on ?? null, now(), now()).run()
+  ).bind(id, reg.id, quantity, unit, location, body.expires_on ?? null, body.opened_on ?? null, now(), now()).run()
 
   if (body.store) {
     await env.DB.prepare(

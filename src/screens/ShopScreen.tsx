@@ -35,11 +35,13 @@ export function ShopScreen({
       window.removeEventListener('focus', onVis)
     }
   }, [onSync])
-  const checkedCount = items.filter((i) => i.checked).length
+  const buyItems = items.filter((i) => !i.have)
+  const haveItems = items.filter((i) => i.have)
+  const checkedCount = buyItems.filter((i) => i.checked).length
 
   const groups = CATEGORY_ORDER.map((cat) => ({
     cat,
-    items: items
+    items: buyItems
       .filter((i) => (i.category ?? 'other') === cat)
       .sort((a, b) => Number(a.checked) - Number(b.checked) || a.name.localeCompare(b.name)),
   })).filter((g) => g.items.length > 0)
@@ -60,7 +62,7 @@ export function ShopScreen({
             <span className="w-1.5 h-1.5 rounded-full bg-like animate-pulse" /> live
           </span>
         </h1>
-        <span className="text-sm text-ink-dim">{items.length - checkedCount} left</span>
+        <span className="text-sm text-ink-dim">{buyItems.length - checkedCount} left</span>
       </div>
 
       <div className="flex gap-2">
@@ -130,6 +132,34 @@ export function ShopScreen({
               </div>
             )
           })}
+
+          {groups.length === 0 && haveItems.length > 0 && (
+            <p className="text-center text-sm text-ink-dim py-2">Nothing to buy — it's all in stock ✓</p>
+          )}
+
+          {haveItems.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-like mb-1.5">
+                ✓ Already have ({haveItems.length})
+              </h3>
+              <div className="space-y-1">
+                {haveItems
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((i) => (
+                    <div key={i.id} className="flex items-center gap-3 py-1.5 px-2 rounded-lg opacity-70">
+                      <span className="w-6 h-6 shrink-0 flex items-center justify-center text-like">✓</span>
+                      <div className="flex-1 min-w-0 text-ink-dim">
+                        <span className="truncate">{i.name}</span>
+                        {(i.quantity != null || i.unit) && (
+                          <span className="text-ink-faint text-sm ml-2">{formatQty(i.quantity, i.unit)}</span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-ink-faint shrink-0">in stock</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

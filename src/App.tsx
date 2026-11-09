@@ -6,6 +6,7 @@ import { usePlan } from './hooks/usePlan'
 import { useGrocery } from './hooks/useGrocery'
 import { useStock } from './hooks/useStock'
 import { useCookability } from './hooks/useCookability'
+import { useIngredients } from './hooks/useIngredients'
 import { BottomNav } from './components/BottomNav'
 import { RecipeEditor } from './components/RecipeEditor'
 import { SwipeScreen } from './screens/SwipeScreen'
@@ -13,6 +14,7 @@ import { PlanScreen } from './screens/PlanScreen'
 import { ShopScreen } from './screens/ShopScreen'
 import { CookScreen } from './screens/CookScreen'
 import { StockScreen } from './screens/StockScreen'
+import { IngredientsScreen } from './screens/IngredientsScreen'
 import { RecipesScreen } from './screens/RecipesScreen'
 import { ReconcileSheet } from './components/ReconcileSheet'
 import { daysUntil, EXPIRING_SOON_DAYS } from './lib/ui'
@@ -27,6 +29,7 @@ export default function App() {
   const grocery = useGrocery()
   const stock = useStock()
   const cookability = useCookability()
+  const ingredients = useIngredients()
 
   // Keep the "% in stock" badges fresh when landing on the tabs that show them.
   useEffect(() => {
@@ -160,6 +163,9 @@ export default function App() {
             onEditIngredient={stock.editIngredient}
             onRemove={stock.remove}
           />
+        )}
+        {tab === 'items' && (
+          <IngredientsScreen items={ingredients.items} loading={ingredients.loading} onPatch={ingredients.patch} onCreate={ingredients.create} />
         )}
         {tab === 'recipes' && (
           <RecipesScreen

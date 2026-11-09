@@ -67,3 +67,26 @@ export function convert(qty: number, from: string | null | undefined, to: string
 export function tidy(n: number): number {
   return Math.round(n * 1000) / 1000
 }
+
+/**
+ * Collapse any unit to the canonical base the app tracks in: g, ml, or pcs.
+ * Mass → g, volume → ml, everything else (count words, unknown, empty) → pcs.
+ * Keeps the register from drifting off the three-unit system.
+ */
+export function baseUnit(unit: string | null | undefined): 'g' | 'ml' | 'pcs' {
+  const s = spec(unit)
+  if (!s) return 'pcs'
+  return s.family === 'mass' ? 'g' : s.family === 'volume' ? 'ml' : 'pcs'
+}
+
+/**
+ * Express a quantity in an ingredient's canonical unit: convert when the supplied
+ * unit is compatible, otherwise keep the number as-is (best effort). Used so stock
+ * rows always carry the canonical unit rather than whatever the caller passed.
+ */
+export function toCanonicalQty(qty: number | null | undefined, fromUnit: string | null | undefined, canonUnit: string | null | undefined): number | null {
+  if (qty == null) return null
+  if (!canonUnit || normUnit(fromUnit) === normUnit(canonUnit)) return qty
+  const c = convert(qty, fromUnit, canonUnit)
+  return c != null ? tidy(c) : qty
+}

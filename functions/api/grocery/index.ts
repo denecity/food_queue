@@ -10,6 +10,7 @@ export interface GroceryItem {
   unit: string | null
   category: string | null
   checked: boolean
+  have: boolean
   source: 'plan' | 'manual'
   recipe_ids: string[]
   recipes?: RecipeRef[]
@@ -42,6 +43,7 @@ export function mapGrocery(row: Record<string, unknown>): GroceryItem {
     unit: (row.unit as string) ?? null,
     category: (row.category as string) ?? null,
     checked: Number(row.checked ?? 0) === 1,
+    have: Number(row.have ?? 0) === 1,
     source: (row.source as 'plan' | 'manual') ?? 'manual',
     recipe_ids: recipeIds,
     ingredient_id: (row.ingredient_id as string) ?? null,

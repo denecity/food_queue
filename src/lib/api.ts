@@ -1,4 +1,4 @@
-import type { ConsumePayload, GroceryItem, ModelOption, PlanItem, Recipe, RecipeDraft, RecipeUsage, Stage, StockItem } from './types'
+import type { ConsumePayload, GroceryItem, ModelOption, PlanItem, Recipe, RecipeDraft, RecipeUsage, RegisterIngredient, Stage, StockItem } from './types'
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -138,8 +138,14 @@ export const api = {
   },
 
   ingredients: {
+    list() {
+      return request<RegisterIngredient[]>('/api/ingredients')
+    },
+    create(body: { name: string; unit?: string | null; category?: string | null; staple?: boolean }) {
+      return request<RegisterIngredient>('/api/ingredients', { method: 'POST', body: JSON.stringify(body) })
+    },
     patch(id: string, body: { default_unit?: string | null; step?: number | null; category?: string | null; default_location?: string | null; staple?: boolean }) {
-      return request<unknown>(`/api/ingredients/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
+      return request<RegisterIngredient>(`/api/ingredients/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
     },
   },
 
