@@ -104,6 +104,7 @@ export async function buildGroceryFromPlan(env: Env): Promise<GroceryItem[]> {
     // in a separate "already have" section — rather than dropped from the list.
     let have = a.staple
     let qty = a.numeric ? Math.round((a.quantity ?? 0) * 100) / 100 : null
+    let inStock: number | null = null // set only when stock covers part of the need
     if (!have && a.ingredientId && qty != null) {
       const onHand = stockByIngredient.get(a.ingredientId)
       if (onHand) {
@@ -114,7 +115,10 @@ export async function buildGroceryFromPlan(env: Env): Promise<GroceryItem[]> {
         if (stocked > 0) {
           const remaining = Math.round((qty - stocked) * 100) / 100
           if (remaining <= 0) have = true // fully covered — keep full qty for display, mark as have
-          else qty = remaining
+          else {
+            inStock = Math.round(stocked * 100) / 100
+            qty = remaining
+          }
         }
       }
     }
@@ -122,8 +126,8 @@ export async function buildGroceryFromPlan(env: Env): Promise<GroceryItem[]> {
     const k = keyOf(a.name, a.unit)
     stmts.push(
       env.DB.prepare(
-        `INSERT INTO grocery_items (id, name, quantity, unit, category, checked, source, recipe_ids, sort_order, created_at, ingredient_id, have)
-         VALUES (?, ?, ?, ?, ?, ?, 'plan', ?, ?, ?, ?, ?)`
+        `INSERT INTO grocery_items (id, name, quantity, unit, category, checked, source, recipe_ids, sort_order, created_at, ingredient_id, have, in_stock)
+         VALUES (?, ?, ?, ?, ?, ?, 'plan', ?, ?, ?, ?, ?, ?)`
       ).bind(
         crypto.randomUUID(),
         a.name,
@@ -135,7 +139,8 @@ export async function buildGroceryFromPlan(env: Env): Promise<GroceryItem[]> {
         order++,
         now(),
         a.ingredientId,
-        have ? 1 : 0
+        have ? 1 : 0,
+        inStock
       )
     )
   }

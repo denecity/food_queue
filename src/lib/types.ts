@@ -66,6 +66,7 @@ export interface GroceryItem {
   category: string | null
   checked: boolean
   have: boolean
+  in_stock: number | null
   source: 'plan' | 'manual'
   recipe_ids: string[]
   recipes?: { id: string; name: string; emoji: string }[]
