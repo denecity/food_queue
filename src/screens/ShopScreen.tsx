@@ -42,7 +42,7 @@ export function ShopScreen({
     cat,
     items: items
       .filter((i) => (i.category ?? 'other') === cat)
-      .sort((a, b) => Number(a.checked) - Number(b.checked) || a.name.localeCompare(b.name)),
+      .sort((a, b) => a.name.localeCompare(b.name)),
   })).filter((g) => g.items.length > 0)
 
   function submit() {
