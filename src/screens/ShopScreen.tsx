@@ -101,6 +101,8 @@ export function ShopScreen({
                 <div className="space-y-1">
                   {g.items.map((i) => {
                     const partial = !i.have && i.in_stock != null
+                    const toBuy = i.have ? 0 : i.quantity
+                    const total = i.have ? i.quantity : (i.quantity ?? 0) + (i.in_stock ?? 0)
                     return (
                     <div key={i.id} className={`relative flex items-center gap-3 py-2 px-2 rounded-lg border active:bg-bg-hover ${i.have ? 'border-red-500/70' : 'border-transparent'}`}>
                       {/* CSS dashes can't be sized, so the partial outline is drawn over the border. */}
@@ -126,8 +128,9 @@ export function ShopScreen({
                           <span className="truncate">{i.name}</span>
                           {(i.quantity != null || i.unit) && (
                             <span className="text-ink-dim text-sm ml-2">
-                              {formatQty(i.quantity, i.unit)}
-                              {partial && ` (${formatQty((i.quantity ?? 0) + i.in_stock!, i.unit)} total)`}
+                              {i.in_stock != null
+                                ? `${formatQty(toBuy, i.unit)} (${formatQty(total, i.unit)} total)`
+                                : formatQty(i.quantity, i.unit)}
                             </span>
                           )}
                         </div>
@@ -137,8 +140,11 @@ export function ShopScreen({
                           </div>
                         )}
                       </div>
-                      {i.have && <span className="text-[10px] font-medium text-red-400 shrink-0">in pantry</span>}
-                      {partial && <span className="text-[10px] font-medium text-red-400 shrink-0">{formatQty(i.in_stock, i.unit)} in pantry</span>}
+                      {(i.have || partial) && (
+                        <span className="text-[10px] font-medium text-red-400 shrink-0">
+                          {i.in_stock != null ? `${formatQty(i.in_stock, i.unit)} in pantry` : 'in pantry'}
+                        </span>
+                      )}
                       {i.source === 'manual' && (
                         <button onClick={() => onRemove(i.id)} className="text-ink-faint hover:text-skip px-1.5 shrink-0">✕</button>
                       )}

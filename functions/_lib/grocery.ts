@@ -104,8 +104,8 @@ export async function buildGroceryFromPlan(env: Env): Promise<GroceryItem[]> {
     // in a separate "already have" section — rather than dropped from the list.
     let have = a.staple
     let qty = a.numeric ? Math.round((a.quantity ?? 0) * 100) / 100 : null
-    let inStock: number | null = null // set only when stock covers part of the need
-    if (!have && a.ingredientId && qty != null) {
+    let inStock: number | null = null // what the pantry holds, when it counts towards this item
+    if (a.ingredientId && qty != null) {
       const onHand = stockByIngredient.get(a.ingredientId)
       if (onHand) {
         let stocked = 0
@@ -114,8 +114,10 @@ export async function buildGroceryFromPlan(env: Env): Promise<GroceryItem[]> {
         }
         if (stocked > 0) {
           const remaining = Math.round((qty - stocked) * 100) / 100
-          if (remaining <= 0) have = true // fully covered — keep full qty for display, mark as have
-          else {
+          if (remaining <= 0) {
+            have = true // fully covered — keep full qty for display, mark as have
+            inStock = Math.round(stocked * 100) / 100
+          } else if (!have) {
             inStock = Math.round(stocked * 100) / 100
             qty = remaining
           }
