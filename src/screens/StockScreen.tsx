@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import type { StockItem, StockLocation } from '../lib/types'
+import type { StockItem, StockLocation, StockSort } from '../lib/types'
 import {
   LOCATION_ORDER,
   locationMeta,
@@ -68,7 +68,7 @@ function AddStockDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (b: Ad
         </div>
       </div>
       <label className="block text-xs text-ink-dim space-y-1">
-        Expires (optional)
+        Expires (optional, empty uses the ingredient's default)
         <input type="date" className="field" value={expires} onChange={(e) => setExpires(e.target.value)} />
       </label>
     </Sheet>
@@ -228,6 +228,8 @@ function StockRow({
 export function StockScreen({
   items,
   loading,
+  sort,
+  onSort,
   onAdd,
   onPatch,
   onIncrement,
@@ -236,6 +238,8 @@ export function StockScreen({
 }: {
   items: StockItem[]
   loading: boolean
+  sort: StockSort
+  onSort: (s: StockSort) => void
   onAdd: (body: AddStockBody) => void
   onPatch: (id: string, body: Partial<Pick<StockItem, 'quantity' | 'expires_on' | 'location'>>) => void
   onIncrement: (item: StockItem, dir: 1 | -1) => void
@@ -266,6 +270,12 @@ export function StockScreen({
       .sort((a, b) => a.ingredient.localeCompare(b.ingredient)),
   })).filter((g) => g.items.length > 0)
 
+  // Soonest first; anything without a date goes last.
+  const byExpiry = [...filtered].sort(
+    (a, b) =>
+      (a.expires_on ?? '9999').localeCompare(b.expires_on ?? '9999') || a.ingredient.localeCompare(b.ingredient)
+  )
+
   const toggle = (id: string) => setOpenId((cur) => (cur === id ? null : id))
 
   const rowProps = (i: StockItem) => ({
@@ -290,6 +300,15 @@ export function StockScreen({
 
       <input className="field" placeholder="Search stock…" value={q} onChange={(e) => setQ(e.target.value)} />
 
+      <div className="flex items-center gap-1.5 text-xs text-ink-dim">
+        Sort by
+        {(['location', 'expiry'] as const).map((s) => (
+          <button key={s} onClick={() => onSort(s)} className={`px-2.5 py-1 rounded-md text-xs font-medium border ${sort === s ? 'bg-accent/15 border-accent text-accent' : 'border-line text-ink-dim'}`}>
+            {s === 'location' ? 'Location' : 'Expiry date'}
+          </button>
+        ))}
+      </div>
+
       {adding && <AddStockDialog onClose={() => setAdding(false)} onAdd={onAdd} />}
 
       {loading ? (
@@ -298,6 +317,12 @@ export function StockScreen({
         <div className="text-center py-16 text-ink-dim space-y-1">
           <div className="text-4xl">🧊</div>
           <p>Nothing tracked yet. Add items here, or just tell Claude what you bought.</p>
+        </div>
+      ) : sort === 'expiry' ? (
+        <div className="space-y-1.5">
+          {byExpiry.map((i) => (
+            <StockRow key={i.id} showLocation {...rowProps(i)} />
+          ))}
         </div>
       ) : (
         <>

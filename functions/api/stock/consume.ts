@@ -1,6 +1,6 @@
 import type { Env } from '../../_lib/types'
 import { json, readJson, uuid, now } from '../../_lib/http'
-import { findOrCreateIngredient } from '../../_lib/register'
+import { findOrCreateIngredient, expiryFor } from '../../_lib/register'
 import { consumeStatements } from '../../_lib/usage'
 import { listStock } from '../../_lib/stock'
 
@@ -36,7 +36,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       a.quantity ?? null,
       a.unit ?? reg.default_unit ?? null,
       a.location ?? reg.default_location,
-      a.expires_on ?? null,
+      expiryFor(reg, a.expires_on),
       now(),
       now()
     ).run()

@@ -31,6 +31,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     category: body.category ?? null,
     default_unit: body.unit ?? null,
     staple: body.staple,
+    shelf_life_days: body.shelf_life_days ?? null,
   })
   return json({ ...reg, recipe_count: 0, stock_count: 0 }, 201)
 }

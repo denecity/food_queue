@@ -1,6 +1,6 @@
 import type { Env } from '../../_lib/types'
 import { json, readJson, notFound, now } from '../../_lib/http'
-import { mapRegister } from '../../_lib/register'
+import { mapRegister, parseShelfLife } from '../../_lib/register'
 
 // PATCH /api/ingredients/:id — edit a register entry (canonical unit, step, etc.).
 export const onRequestPatch: PagesFunction<Env> = async ({ params, request, env }) => {
@@ -28,11 +28,22 @@ export const onRequestPatch: PagesFunction<Env> = async ({ params, request, env 
     sets.push('staple = ?')
     binds.push(body.staple ? 1 : 0)
   }
+  const shelfLife = 'shelf_life_days' in body ? parseShelfLife(body.shelf_life_days) : null
+  if ('shelf_life_days' in body) {
+    sets.push('shelf_life_days = ?')
+    binds.push(shelfLife)
+  }
   if (sets.length > 0) {
     sets.push('updated_at = ?')
     binds.push(now())
     binds.push(id)
     await env.DB.prepare(`UPDATE ingredient_register SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run()
+  }
+  // A new shelf life also dates the stock of this ingredient that has no expiry yet.
+  if (shelfLife != null) {
+    await env.DB.prepare(
+      'UPDATE stock_items SET expires_on = date(added_at, ?), updated_at = ? WHERE ingredient_id = ? AND expires_on IS NULL'
+    ).bind(`+${shelfLife} days`, now(), id).run()
   }
   const row = await env.DB.prepare('SELECT * FROM ingredient_register WHERE id = ?').bind(id).first<Record<string, unknown>>()
   return json(mapRegister(row!))

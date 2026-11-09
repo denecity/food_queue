@@ -6,7 +6,6 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'shop', label: 'Shop', icon: '🛒' },
   { id: 'cook', label: 'Cook', icon: '🍳' },
   { id: 'stock', label: 'Stock', icon: '🧊' },
-  { id: 'items', label: 'Items', icon: '📇' },
   { id: 'recipes', label: 'Recipes', icon: '📖' },
 ]
 
@@ -24,7 +23,7 @@ export function BottomNav({
       className="fixed bottom-0 inset-x-0 z-40 bg-bg-card/95 backdrop-blur border-t border-line pb-safe"
       style={{ height: 'calc(var(--nav-h) + var(--safe-bottom))' }}
     >
-      <div className="max-w-2xl mx-auto h-full grid grid-cols-7" style={{ height: 'var(--nav-h)' }}>
+      <div className="max-w-2xl mx-auto h-full grid grid-cols-6" style={{ height: 'var(--nav-h)' }}>
         {TABS.map((t) => {
           const on = active === t.id
           const badge = badges?.[t.id]

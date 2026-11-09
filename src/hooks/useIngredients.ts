@@ -22,7 +22,7 @@ export function useIngredients() {
   useEffect(() => { load(true) }, [load])
 
   const create = useCallback(
-    async (body: { name: string; unit?: string | null; category?: string | null; staple?: boolean }) => {
+    async (body: { name: string; unit?: string | null; category?: string | null; staple?: boolean; shelf_life_days?: number | null }) => {
       try {
         await api.ingredients.create(body)
         load(false)
@@ -34,7 +34,7 @@ export function useIngredients() {
   )
 
   const patch = useCallback(
-    async (id: string, body: { default_unit?: string | null; step?: number | null; category?: string | null; staple?: boolean }) => {
+    async (id: string, body: { default_unit?: string | null; step?: number | null; category?: string | null; staple?: boolean; shelf_life_days?: number | null }) => {
       setItems((xs) => xs.map((i) => (i.id === id ? { ...i, ...body } as RegisterIngredient : i)))
       try {
         await api.ingredients.patch(id, body)

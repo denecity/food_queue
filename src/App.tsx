@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ConsumePayload, PlanItem, Recipe, RecipeUsage, Tab } from './lib/types'
+import type { ConsumePayload, PlanItem, Recipe, RecipeUsage, StockSort, StockView, Tab } from './lib/types'
 import { api } from './lib/api'
 import { toast, ToastContainer } from './lib/toast'
 import { usePlan } from './hooks/usePlan'
@@ -21,6 +21,8 @@ import { daysUntil, EXPIRING_SOON_DAYS } from './lib/ui'
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('swipe')
+  const [stockView, setStockView] = useState<StockView>('stock')
+  const [stockSort, setStockSort] = useState<StockSort>('location')
   const [editor, setEditor] = useState<{ open: boolean; recipe: Recipe | null }>({ open: false, recipe: null })
   const [reconcile, setReconcile] = useState<{ item: PlanItem; usage: RecipeUsage | null; loading: boolean; busy: boolean } | null>(null)
   const recipesRefetch = useRef<(() => void) | null>(null)
@@ -111,6 +113,12 @@ export default function App() {
     }
   }
 
+  // A new shelf life can date existing stock, so reload it afterwards.
+  async function patchIngredient(id: string, body: Parameters<typeof ingredients.patch>[1]) {
+    await ingredients.patch(id, body)
+    if (body.shelf_life_days != null) stock.refetch()
+  }
+
   const badges = {
     plan: plan.picks.length,
     shop: grocery.items.filter((i) => !i.checked && !i.have).length,
@@ -154,9 +162,28 @@ export default function App() {
           <CookScreen cook={plan.cook} onPatch={plan.patchItem} onCook={startCook} onTap={openEdit} />
         )}
         {tab === 'stock' && (
+          <div className="px-4 pt-4">
+            <div className="grid grid-cols-2 gap-1.5">
+              {(['stock', 'items'] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setStockView(v)}
+                  className={`py-1.5 rounded-md text-sm font-medium border ${
+                    stockView === v ? 'bg-accent/15 border-accent text-accent' : 'border-line text-ink-dim'
+                  }`}
+                >
+                  {v === 'stock' ? 'In stock' : 'Items'}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {tab === 'stock' && stockView === 'stock' && (
           <StockScreen
             items={stock.items}
             loading={stock.loading}
+            sort={stockSort}
+            onSort={setStockSort}
             onAdd={stock.add}
             onPatch={stock.patch}
             onIncrement={stock.increment}
@@ -164,8 +191,8 @@ export default function App() {
             onRemove={stock.remove}
           />
         )}
-        {tab === 'items' && (
-          <IngredientsScreen items={ingredients.items} loading={ingredients.loading} onPatch={ingredients.patch} onCreate={ingredients.create} />
+        {tab === 'stock' && stockView === 'items' && (
+          <IngredientsScreen items={ingredients.items} loading={ingredients.loading} onPatch={patchIngredient} onCreate={ingredients.create} />
         )}
         {tab === 'recipes' && (
           <RecipesScreen

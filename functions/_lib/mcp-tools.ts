@@ -3,7 +3,7 @@ import { uuid, now, today } from './http'
 import { mapRecipe, loadIngredients, replaceIngredients } from './recipes'
 import { mapGrocery, withRecipeNames } from '../api/grocery/index'
 import { buildGroceryFromPlan } from './grocery'
-import { findOrCreateIngredient, resolveIngredient, mapRegister } from './register'
+import { findOrCreateIngredient, resolveIngredient, mapRegister, expiryFor } from './register'
 import { storeRecipeImageFromUrl } from './images'
 import { toCanonicalQty } from './units'
 
@@ -207,6 +207,7 @@ export const TOOLS: McpTool[] = [
         default_unit: { type: ['string', 'null'] },
         default_location: { type: 'string', enum: STOCK_LOCATIONS },
         staple: { type: 'boolean', description: 'Always-assumed-present (oil, salt, rice); kept off the shopping list.' },
+        shelf_life_days: { type: ['integer', 'null'], description: 'Optional: days a fresh purchase typically keeps. Stock added without an expiry date gets today + this many days.' },
       },
       required: ['name'],
     },
@@ -243,7 +244,7 @@ export const TOOLS: McpTool[] = [
         quantity: { type: ['number', 'null'] },
         unit: { type: ['string', 'null'] },
         location: { type: 'string', enum: STOCK_LOCATIONS, description: 'Defaults from the ingredient register' },
-        expires_on: { type: ['string', 'null'], description: 'Date (YYYY-MM-DD), read off the packaging if visible' },
+        expires_on: { type: ['string', 'null'], description: 'Date (YYYY-MM-DD), read off the packaging if visible. Leave empty when unknown: the ingredient\'s shelf_life_days, if set, fills it in.' },
         opened_on: { type: ['string', 'null'], description: 'Date (YYYY-MM-DD)' },
         store: { type: ['string', 'null'], description: 'Where it was bought, e.g. Coop, Migros, Asia-Markt' },
         price: { type: ['number', 'null'], description: 'CHF paid (for the pack)' },
@@ -654,6 +655,7 @@ export async function callTool(env: Env, name: string, args: Record<string, any>
         default_unit: args.default_unit ?? null,
         default_location: args.default_location ?? null,
         staple: args.staple,
+        shelf_life_days: args.shelf_life_days ?? null,
       })
       return reg
     }
@@ -710,7 +712,7 @@ export async function callTool(env: Env, name: string, args: Record<string, any>
       await env.DB.prepare(
         `INSERT INTO stock_items (id, ingredient_id, quantity, unit, location, expires_on, opened_on, source, added_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ).bind(id, reg.id, quantity, unit, location, args.expires_on ?? null, args.opened_on ?? null, args.source ?? 'chat', now(), now()).run()
+      ).bind(id, reg.id, quantity, unit, location, expiryFor(reg, args.expires_on), args.opened_on ?? null, args.source ?? 'chat', now(), now()).run()
       let logged: { store: string; price: number | null } | null = null
       if (args.store) {
         await logPrice(env, reg.id, args, unit)

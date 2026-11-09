@@ -102,6 +102,7 @@ export interface RegisterIngredient {
   default_location: string
   staple: boolean
   step: number
+  shelf_life_days: number | null
   recipe_count: number
   stock_count: number
 }
@@ -136,7 +137,10 @@ export interface ModelOption {
   hint: string
 }
 
-export type Tab = 'swipe' | 'plan' | 'shop' | 'cook' | 'stock' | 'items' | 'recipes'
+export type Tab = 'swipe' | 'plan' | 'shop' | 'cook' | 'stock' | 'recipes'
+
+export type StockView = 'stock' | 'items'
+export type StockSort = 'location' | 'expiry'
 
 export type RecipeSort =
   | 'yumminess_desc' | 'yumminess_asc'

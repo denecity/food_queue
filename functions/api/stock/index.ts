@@ -1,6 +1,6 @@
 import type { Env } from '../../_lib/types'
 import { json, readJson, badRequest, uuid, now } from '../../_lib/http'
-import { findOrCreateIngredient } from '../../_lib/register'
+import { findOrCreateIngredient, expiryFor } from '../../_lib/register'
 import { listStock, getStock } from '../../_lib/stock'
 import { toCanonicalQty } from '../../_lib/units'
 
@@ -30,7 +30,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   await env.DB.prepare(
     `INSERT INTO stock_items (id, ingredient_id, quantity, unit, location, expires_on, opened_on, source, added_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, 'manual', ?, ?)`
-  ).bind(id, reg.id, quantity, unit, location, body.expires_on ?? null, body.opened_on ?? null, now(), now()).run()
+  ).bind(id, reg.id, quantity, unit, location, expiryFor(reg, body.expires_on), body.opened_on ?? null, now(), now()).run()
 
   if (body.store) {
     await env.DB.prepare(

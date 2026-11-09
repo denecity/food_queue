@@ -141,10 +141,10 @@ export const api = {
     list() {
       return request<RegisterIngredient[]>('/api/ingredients')
     },
-    create(body: { name: string; unit?: string | null; category?: string | null; staple?: boolean }) {
+    create(body: { name: string; unit?: string | null; category?: string | null; staple?: boolean; shelf_life_days?: number | null }) {
       return request<RegisterIngredient>('/api/ingredients', { method: 'POST', body: JSON.stringify(body) })
     },
-    patch(id: string, body: { default_unit?: string | null; step?: number | null; category?: string | null; default_location?: string | null; staple?: boolean }) {
+    patch(id: string, body: { default_unit?: string | null; step?: number | null; category?: string | null; default_location?: string | null; staple?: boolean; shelf_life_days?: number | null }) {
       return request<RegisterIngredient>(`/api/ingredients/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
     },
   },

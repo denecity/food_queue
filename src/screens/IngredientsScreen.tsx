@@ -5,18 +5,20 @@ import { Sheet } from '../components/Sheet'
 
 const UNITS = ['g', 'ml', 'pcs'] as const
 
-type NewIngredient = { name: string; unit?: string; category?: string; staple?: boolean }
+type NewIngredient = { name: string; unit?: string; category?: string; staple?: boolean; shelf_life_days?: number | null }
+type IngredientPatch = { default_unit?: string; step?: number; staple?: boolean; shelf_life_days?: number | null }
 
 function AddIngredientDialog({ onClose, onCreate }: { onClose: () => void; onCreate: (b: NewIngredient) => void }) {
   const [name, setName] = useState('')
   const [unit, setUnit] = useState<'pcs' | 'g' | 'ml'>('pcs')
   const [category, setCategory] = useState('other')
   const [staple, setStaple] = useState(false)
+  const [shelfLife, setShelfLife] = useState('')
 
   function submit() {
     const t = name.trim()
     if (!t) return
-    onCreate({ name: t, unit, category, staple })
+    onCreate({ name: t, unit, category, staple, shelf_life_days: Number(shelfLife) > 0 ? Math.round(Number(shelfLife)) : null })
     onClose()
   }
 
@@ -49,6 +51,10 @@ function AddIngredientDialog({ onClose, onCreate }: { onClose: () => void; onCre
           {CATEGORY_ORDER.map((c) => <option key={c} value={c}>{categoryMeta(c).label}</option>)}
         </select>
       </label>
+      <label className="block text-xs text-ink-dim space-y-1">
+        Default shelf life in days (optional)
+        <input type="number" inputMode="numeric" className="field" placeholder="e.g. 30" value={shelfLife} onChange={(e) => setShelfLife(e.target.value)} />
+      </label>
       <button onClick={() => setStaple((s) => !s)} className={`text-xs rounded-md px-2.5 py-1.5 border ${staple ? 'bg-like/15 border-like text-like' : 'border-line text-ink-dim'}`}>
         {staple ? '✓ Staple (always on hand)' : 'Mark as staple'}
       </button>
@@ -65,7 +71,7 @@ function Row({
   ing: RegisterIngredient
   open: boolean
   onToggle: () => void
-  onPatch: (body: { default_unit?: string; step?: number; staple?: boolean }) => void
+  onPatch: (body: IngredientPatch) => void
 }) {
   return (
     <div className="rounded-lg border border-line overflow-hidden">
@@ -78,6 +84,7 @@ function Row({
           </div>
           <div className="text-xs text-ink-faint">
             {ing.default_unit ?? '—'} · step {ing.step}
+            {ing.shelf_life_days != null && <span> · keeps {ing.shelf_life_days}d</span>}
             {ing.recipe_count > 0 && <span> · in {ing.recipe_count} recipe{ing.recipe_count > 1 ? 's' : ''}</span>}
           </div>
         </div>
@@ -117,6 +124,24 @@ function Row({
             </label>
           </div>
 
+          <label className="block text-xs text-ink-dim space-y-1">
+            Default shelf life in days (optional)
+            <input
+              type="number"
+              inputMode="numeric"
+              className="field !py-1.5"
+              placeholder="No default"
+              defaultValue={ing.shelf_life_days ?? ''}
+              onBlur={(e) => {
+                const v = e.target.value.trim()
+                const days = v === '' ? null : Math.round(Number(v))
+                if (days !== null && !(days > 0)) return
+                if (days !== ing.shelf_life_days) onPatch({ shelf_life_days: days })
+              }}
+            />
+            <span className="block text-[11px] text-ink-faint">Stock added without a date expires this many days later. Stock with no date yet gets one too.</span>
+          </label>
+
           <button
             onClick={() => onPatch({ staple: !ing.staple })}
             className={`text-xs rounded-md px-2.5 py-1.5 border ${
@@ -143,7 +168,7 @@ export function IngredientsScreen({
 }: {
   items: RegisterIngredient[]
   loading: boolean
-  onPatch: (id: string, body: { default_unit?: string; step?: number; staple?: boolean }) => void
+  onPatch: (id: string, body: IngredientPatch) => void
   onCreate: (body: NewIngredient) => void
 }) {
   const [q, setQ] = useState('')
